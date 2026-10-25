@@ -1,0 +1,13 @@
+proc            /proc           proc    defaults          0       0
+PARTUUID=155de57f-01  /boot/firmware  vfat    defaults          0       2
+PARTUUID=155de57f-02  /               ext4    defaults,noatime  0       1
+#
+#
+# MY DRIVES
+#UUID=BA5C-A8CF           		   /media/myhdd   		      exfaOt   defaults,nofail,noatime,async,rw,uid=1000,gid=1000,umask=000 0 0
+UUID=BA5C-A8CF       			   /media/HDD-Seagate-1TB-Primary     exfat    defaults,nofail,noatime,async,rw,uid=1000,gid=1000,umask=000 0 0
+UUID=b978ba69-f1e0-4c1d-a165-0e4d6cd9073a  /media/HDD-Seagate-2TB-Backup      ext4     defaults,nofail,noatime,x-systemd.device-timeout=10,async,rw 0 2
+
+#
+# MY HOARDING DRIVE - UNCOMMENT AS NEEDED
+#UUID=B2AF-139E        			   /media/HDD-UTUO-750GB-Archive      exfat    defaults,nofail,noatime,async,rw,uid=1000,gid=1000,umask=000 0 0

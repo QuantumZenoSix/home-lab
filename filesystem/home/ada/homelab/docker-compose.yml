@@ -1,0 +1,47 @@
+  version: '3.8'
+
+  services:
+     jellyfin:
+       image: jellyfin/jellyfin:latest
+       container_name: jellyfin
+       restart: unless-stopped
+       network_mode: host          # Best for hardware decoding on Pi 5
+       volumes:
+         - ./jellyfin/config:/config
+         - ./jellyfin/cache:/cache
+         - /media/HDD-Seagate-1TB-Primary:/media:ro   # Your exFAT drive (read-only is safer for media)
+
+     syncthing:
+        image: syncthing/syncthing:latest   # ← Official image
+        container_name: syncthing
+        hostname: ada-pi-server             # Optional but helpful
+        restart: unless-stopped
+        network_mode: host                  # Recommended on Pi for discovery
+        user: "0:0"                         # Run as root - really only needed for exfat
+        environment:
+          - PUID=1000
+          - PGID=1000
+          - TZ=America/Los_Angeles         # Change to your actual timezone
+        volumes:
+          - ./syncthing/config:/var/syncthing/config
+          - /media/HDD-Seagate-1TB-Primary/Documents/Obsidian:/var/syncthing/Obsidian   # Your Obsidian vault
+          - /media/HDD-Seagate-1TB-Primary/Pictures/MobileUploads:/var/syncthing/MobileUploads   # Your Obsidian vault
+
+     samba:
+         image: dperson/samba:latest   # Popular lightweight Samba image
+         container_name: samba
+         restart: unless-stopped
+         network_mode: host
+         volumes:
+           - /media/HDD-Seagate-1TB-Primary:/mount/myhdd
+           - /media/HDD-Seagate-2TB-Backup:/mount/myhdd2
+         environment:
+           - USER=ada;myfakesambapassword   # Change this!
+           - SHARE1=myhdd;/mount/myhdd;yes;no;no;ada;ada
+           - SHARE2=myhdd-backup;/mount/myhdd2;yes;no;no;ada;ada
+           - GLOBAL=workgroup = WORKGROUP
+           #- GLOBAL=client min protocol = CORE
+           #- GLOBAL=client max protocol = SMB3
+           #- GLOBAL=server min protocol = CORE
+           #- GLOBAL=server max protocol = SMB3
+           #- GLOBAL=workgroup = MYGROUP
