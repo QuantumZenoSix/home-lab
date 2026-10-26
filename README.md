@@ -23,9 +23,6 @@ Uptime Kuma monitors application services and scheduled automation. Failed check
 ## Architecture
 
 ```mermaid
-
-flowchart TB
-
 flowchart TB
 
     %% ========= DEFINE ITEMS ==========
