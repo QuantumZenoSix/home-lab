@@ -18,7 +18,9 @@ Uptime Kuma monitors application services and scheduled automation. Failed check
 - **Host security:** UFW firewall rules, SSH public-key authentication, and restricted remote administration.
 - **Encrypted backups:** Restic backs up the Raspberry Pi system and primary data drive to a repository on a separate local SSD with plans for offsite backup via Backblaze.
 - **Automated workflows:** Scheduled Obsidian Git commits and mobile photo organization.
-- **Monitoring and alerting:** Uptime Kuma checks service availability and receives push heartbeats from scheduled jobs; Signal delivers notifications when monitored checks fail.
+- **Monitoring and alerting:**
+  - Uptime Kuma checks service availability and receives push heartbeats from scheduled jobs; Signal delivers notifications when monitored checks fail.
+  - Beszel monitors the health of the host (Pi) as well as the individual service containers.
 
 ## Architecture
 
@@ -139,14 +141,15 @@ The diagram shows logical relationships rather than exact network routes or moun
 
 | Component | Purpose |
 |---|---|
-| Samba | Network file sharing |
-| [Jellyfin](https://jellyfin.org/) | Media streaming from the primary SSD |
-| [Syncthing](https://syncthing.net/) | Synchronization of the Obsidian vault and mobile photo uploads |
-| [Uptime Kuma](https://uptime.kuma.pet/) | Service monitoring and scheduled-job heartbeat monitoring |
-| [Restic](https://restic.net/) | Encrypted system and data backups |
-| [Tailscale](https://tailscale.com/) | Private connectivity between trusted devices |
+| [Bezsel](https://www.beszel.dev/) | System/contain health monitoring | 
+| [Uptime Kuma](https://uptime.kuma.pet/) | Service monitoring and scheduled-job heartbeat monitoring | 
 | [Signal integration](https://github.com/bbernhard/signal-cli-rest-api) | Failure notifications from Uptime Kuma |
+| [Tailscale](https://tailscale.com/) | Private connectivity between trusted devices |
+| [Syncthing](https://syncthing.net/) | Synchronization of the Obsidian vault and mobile photo uploads |
+| [Jellyfin](https://jellyfin.org/) | Media streaming from the primary SSD |
+| [Restic](https://restic.net/) | Encrypted system and data backups |
 | [Phockup](https://github.com/ivandokov/phockup) | Image Sorting and Organization |
+| Samba | Network file sharing |
 
 
 ## Storage and data management
@@ -178,7 +181,19 @@ These jobs are scheduled using the cron service but can equally be set up with u
 
 Uptime Kuma receives a push heartbeat when a backup command completes successfully. This allows the monitoring system to alert when an expected heartbeat is missed.
 
-**Current limitation:** The second SSD helps separate the backup destination from the primary data drive, but it does not protect against loss of the entire server or both drives. Offsite backup is planned via Backblaze B2.
+**Current limitation:** The second SSD helps separate the backup destination from the primary data drive, but it does not protect against loss of the entire server or both drives. Offsite backup is planned via Backblaze B2.  
+
+_User cron table (ada)_
+```shell
+0  5 * * * /home/ada/scripts/auto_commit_obsidian.sh >> ~/scripts/auto_commit_obsidian.log
+0 */4 * * * /home/ada/scripts/organize_mobile_photos.sh
+```
+
+_Root cron table_
+```shell
+30 4 * * * /root/.restic/restic_backup_system.sh
+0 6 * * * /root/.restic/restic_backup_data.sh
+```  
 
 ## Automation
 
@@ -202,6 +217,10 @@ The heartbeat checks indicate that a script reached its success-reporting point.
 
 Because Uptime Kuma runs on the same Raspberry Pi, a complete host outage can also take down the monitoring system. Independent monitoring from another device or service to monitor the Pi itself is also planned (maybe a second Pi and they monitor each other? Not sure, we shall see).
 
+Beyond availability, Beszel also help with monitoring as it monitors the health of the headless Raspberry Pi itself as well as all of the containers running on it tracking metrics like CPU/GPU usage, Disk/Memory/Network activity and more so I can review historical data via the dashboard.
+
+For further diagnoses I can use tool like [btop++](https://github.com/aristocratos/btop), [dysk](https://github.com/Canop/dysk), [darya](https://github.com/mrkatebzadeh/darya), [lazydocker](https://github.com/jesseduffield/lazydocker), [dcv](https://github.com/tokuhirom/dcv), and general cli utilities to investigate.
+
 ## Repository layout
 
 ```text
@@ -210,6 +229,8 @@ filesystem/
 │   └── fstab
 ├── home/
 │   └── ada/
+│       ├── beszel/
+│       │   └── docker-compose.yml
 │       ├── homelab/
 │       │   └── docker-compose.yml
 │       ├── scripts/
