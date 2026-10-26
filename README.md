@@ -22,6 +22,15 @@ Uptime Kuma monitors application services and scheduled automation. Failed check
   - Uptime Kuma checks service availability and receives push heartbeats from scheduled jobs; Signal delivers notifications when monitored checks fail.
   - Beszel monitors the health of the host (Pi) as well as the individual service containers.
 
+## Documentation
+
+| Document | Covers |
+|---|---|
+| [Architecture](docs/architecture.md) | Hardware, storage layout, services, and data flows |
+| [Networking and security](docs/networking-and-security.md) | Tailscale, UFW, SSH, service exposure, and how to verify it |
+| [Backups and recovery](docs/backups-and-recovery.md) | Restic jobs, retention, repository checks, restore procedures, and a recovery checklist |
+| [Operations and monitoring](docs/operations-and-monitoring.md) | Monitored checks, alerting, scheduled tasks, logs, and outage diagnosis |
+
 ## Architecture
 
 ```mermaid
