@@ -26,6 +26,7 @@ Uptime Kuma monitors application services and scheduled automation. Failed check
 
 flowchart TB
 
+
     %% ========= DEFINE ITEMS ==========
     Pi["Raspberry Pi 5 🍓\nHeadless Linux Host"]
     Devices["Personal devices 📱💻"]
@@ -53,7 +54,7 @@ flowchart TB
     %% PRIMARY DRIVE 
     subgraph Primary Drive
         %%PrimarySSD@{shape: lin-cyl, label: "Primary SSD — 1 TB 💽\n-----------------------------\n- Obsidian Vault\n- MobileUploads\n- Documents/Media"}
-        PrimarySSD[(Primary SSD 💽\n-------------\nDocuments/Media)]
+        PrimarySSD[(Primary SSD — 1 TB 💽\n-------------\nDocuments/Media)]
         SharedMedia["📁 Shared Media"]
         MobileUploads["📁 Mobile Uploads"]
         ObsidianVault["📁 Obsidian Vault 📝"]
@@ -65,7 +66,7 @@ flowchart TB
 
 
     subgraph Secondary Drive
-        SecondarySSD[(Secondary SSD 💽\n-----------------\nRestic encrypted repository 🔒)]
+        SecondarySSD[(Secondary SSD — 2 TB 💽\n-----------------\nRestic encrypted repository 🔒)]
     end
 
     %% DOCKER SERVICES   
@@ -86,7 +87,7 @@ flowchart TB
 
 
     subgraph Monitoring & Alering System
-        DockerComposeMonitor --> Kuma --> Signal
+        DockerComposeMonitor --> Kuma ==> Signal
         Kuma -.monitors.-> Jellyfin
         Kuma -.monitors.-> Syncthing
         Kuma -.monitors.-> Samba
@@ -118,6 +119,15 @@ flowchart TB
 
     %%Kuma -.-> DockerServices
     
+    linkStyle default stroke:white
+    linkStyle 2 stroke-width:4px,stroke:orange
+    linkStyle 3 stroke-width:4px,stroke:orange
+    linkStyle 4 stroke:white
+    linkStyle 22 stroke-width:2px,stroke:#90E4C1
+    linkStyle 21 stroke-width:2px,stroke:#90E4C1
+    linkStyle 20 stroke-width:4px,stroke:#90E4C1
+    linkStyle 19 stroke-width:4px,stroke:#90E4C1
+
 
 ```
 
