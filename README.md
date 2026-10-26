@@ -53,7 +53,7 @@ flowchart TB
     %% PRIMARY DRIVE 
     subgraph Primary Drive
         %%PrimarySSD@{shape: lin-cyl, label: "Primary SSD — 1 TB 💽\n-----------------------------\n- Obsidian Vault\n- MobileUploads\n- Documents/Media"}
-        PrimarySSD[(Primary SSD — 1 TB 💽\n-------------\nDocuments/Media)]
+        PrimarySSD[(Primary SSD 💽\n-------------\nDocuments/Media)]
         SharedMedia["📁 Shared Media"]
         MobileUploads["📁 Mobile Uploads"]
         ObsidianVault["📁 Obsidian Vault 📝"]
@@ -65,7 +65,7 @@ flowchart TB
 
 
     subgraph Secondary Drive
-        SecondarySSD[(Secondary SSD — 2 TB 💽\n-----------------\nRestic encrypted repository 🔒)]
+        SecondarySSD[(Secondary SSD 💽\n-----------------\nRestic encrypted repository 🔒)]
     end
 
     %% DOCKER SERVICES   
