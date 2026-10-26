@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 
 SIGNAL_KEY='example-key-1234'
+
+# fstab mounts the primary drive with nofail, so if it's missing the mount point is an
+# empty directory. Backing that up would "succeed", and keep-daily would prune real snapshots.
+if ! mountpoint -q /media/HDD-Seagate-1TB-Primary; then
+	echo "Primary drive is not mounted; skipping data backup" >&2
+	exit 1
+fi
+
 if [ -d /media/HDD-Seagate-2TB-Backup/restic-repo ]; then
 	# HDD backup
 	restic \
