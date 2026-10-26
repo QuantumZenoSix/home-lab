@@ -137,6 +137,8 @@ flowchart TB
 
 The diagram shows logical relationships rather than exact network routes or mount configuration. The secondary SSD stores the local Restic repository. Offsite backup to Backblaze B2 is a planned extension, not an implemented feature.
 
+For a fuller diagram showing how Beszel monitors system/container health at a high-level see [the Beszel diagram](https://github.com/QuantumZenoSix/home-lab/blob/main/diagrams/architecture_with_beszel.md).
+
 ## Services
 
 | Component | Purpose |
