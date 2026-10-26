@@ -23,43 +23,92 @@ Uptime Kuma monitors application services and scheduled automation. Failed check
 ## Architecture
 
 ```mermaid
+
 flowchart TB
+
+    %% ========= DEFINE ITEMS ==========
     Devices["Personal devices 📱💻"]
     Tailnet["Tailscale private network 🛜"]
-    Pi["Raspberry Pi 5 🍓"]
-    DockerServices["Docker Compose services"]
+    Pi["Raspberry Pi 5 🍓\nHeadless Linux Host"]
     Kuma["Uptime Kuma"]
     Signal["Signal notifications 📱"]
-    PrimarySSD["Primary SSD — 1 TB 💽\n-----------------------------\n- Obsidian Vault\n- MobileUploads\n- Documents/Media"]
-    SecondarySSD["Secondary SSD — 2 TB 💽\n---------------------------------\nRestic encrypted repository 🔒"]
-    %%Restic["Restic encrypted repository 🔒"]
-    %%ObsidianVault["Obsidian Vault 📝"]
-    BackBlaze["Backblaze B2 [TBD] (Offsite Object-Storage Cloud Backup)"]
-    Syncthing["Syncthing\n---------------\n- Obsidian Vault\n-Mobile Photos"]
+    Syncthing["Syncthing"]
     Jellyfin["Jellyfin"]
     Samba["Samba"]
-    
-    
+    Restic["Restic encrypted repository 🔒"]
+    DockerCompose["Docker Compose"]
+
+
+    %% ========= MAP ITEMS ============
+
+    %% TOP LEVEL
     Devices <--> Tailnet <--> Pi
     Pi --> PrimarySSD
-    Pi --> SecondarySSD -.Backup.-> BackBlaze
-    Pi --> DockerServices
-    Pi --> Kuma --> Signal
-    DockerServices --> Syncthing
+    Devices e1@-.Unidirectional Sync.-> MobileUploads
+    e1@{ animation: fast}
+    
+    Pi --> DockerCompose
 
-    Devices -.Sync.-> Syncthing
-    DockerServices --> Jellyfin
-    DockerServices --> Samba
+
+    %% PRIMARY DRIVE 
+    subgraph Primary Drive
+    %%PrimarySSD@{shape: lin-cyl, label: "Primary SSD — 1 TB 💽\n-----------------------------\n- Obsidian Vault\n- MobileUploads\n- Documents/Media"}
+        PrimarySSD[(Primary SSD — 1 TB 💽\n-----------------------------\n- Obsidian Vault\n- MobileUploads\n- Documents/Media)]
+        SharedMedia["Shared Media"]
+        MobileUploads["Mobile Uploads"]
+        ObsidianVault["Obsidian Vault 📝"]
+        
+        PrimarySSD --> ObsidianVault
+        PrimarySSD --> SharedMedia
+        PrimarySSD --> MobileUploads
+    end
+
+
+    subgraph Seconday Drive
+        SecondarySSD[(Secondary SSD — 2 TB 💽\n---------------------------------\nRestic encrypted repository 🔒)]
+        SecondarySSD --> Restic
+        BackBlaze["Backblaze B2 [TBD] (Offsite Object-Storage Cloud Backup)"]
+    end
+
+    %% DOCKER SERVICES   
+    subgraph Docker Services
+        Syncthing
+        Jellyfin
+        Samba
+        Kuma
+        DockerCompose --> Jellyfin
+        DockerCompose --> Samba
+        DockerCompose --> Syncthing
+        DockerCompose --> Kuma --> Signal
+        Jellyfin -.-> SharedMedia
+        Syncthing -.-> ObsidianVault
+        Syncthing -.-> MobileUploads
+        Samba -.-> PrimarySSD
+     end
+
+
+
+    %% Backups flow %%
+    Pi e4@-.Backup.-> SecondarySSD
+    e4@{ animation: fast}    
+
+    PrimarySSD e3@-.Backup.->  SecondarySSD
+    e3@{ animation: fast}
+
+    Pi --> SecondarySSD e2@-.Planned Offsite Backup.-> BackBlaze
+    e2@{ animation: fast}
+
+
+
+
+
     %%Kuma -.Monitoring.-> Syncthing
     %%Kuma -.Monitoring.-> Jellyfin
     %%%Kuma -.Monitoring.-> Samba
 
     %%Kuma -.-> DockerServices
     
-    %% Backups flow %%
-    PrimarySSD -.Backup.->  SecondarySSD
-    Pi-.Backup.-> SecondarySSD
-    
+
 ```
 
 
