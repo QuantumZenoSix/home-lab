@@ -2,14 +2,15 @@
 
 A Raspberry Pi 5 home server built around **private networking, containerized services, automated encrypted backups, and operational monitoring**.
 
-This project documents a self-hosted environment used for file sharing, media streaming, device synchronization, data organization, and backup automation. It emphasizes practical Linux administration, security, reliability, and maintainable infrastructure.
+This project documents a self-hosted environment used for file sharing, media streaming, device synchronization, data organization, and backup automation. 
 
 ## Overview
 
 The system runs on a headless Raspberry Pi 5 with two attached SSDs. Docker Compose manages the primary application services, Tailscale provides private connectivity between trusted devices, and Restic performs scheduled encrypted backups.
 
 Uptime Kuma monitors application services and scheduled automation. Failed checks generate notifications through Signal.  
-
+ 
+Beszel monitors system and container health via the web UI and configurable notifications.
 
 ### Key capabilities
 
@@ -17,7 +18,7 @@ Uptime Kuma monitors application services and scheduled automation. Failed check
 - **Private networking:** Tailscale connects the server and personal devices without relying on direct public exposure of the services.
 - **Host security:** UFW firewall rules, SSH public-key authentication, and restricted remote administration.
 - **Encrypted backups:** Restic backs up the Raspberry Pi system and primary data drive to a repository on a separate local SSD with plans for offsite backup via Backblaze.
-- **Automated workflows:** Scheduled Obsidian Git commits and mobile photo organization.
+- **Automated workflows:** Scheduled Obsidian Git commits and mobile photo organization.reree
 - **Monitoring and alerting:**
   - Uptime Kuma checks service availability and receives push heartbeats from scheduled jobs; Signal delivers notifications when monitored checks fail.
   - Beszel monitors the health of the host (Pi) as well as the individual service containers.
@@ -29,7 +30,10 @@ Uptime Kuma monitors application services and scheduled automation. Failed check
 | [Architecture](docs/architecture.md) | Hardware, storage layout, services, and data flows |
 | [Networking and security](docs/networking-and-security.md) | Tailscale, UFW, SSH, service exposure, and how to verify it |
 | [Backups and recovery](docs/backups-and-recovery.md) | Restic jobs, retention, repository checks, restore procedures, and a recovery checklist |
+| [Issues resolved](docs/known-issues.md) | Fixed bugs, security/performance improvements, best-practice updates |
+| [Known issues](docs/issues-resolved.md) | Existing bugs, features to add, security-conscious redesigns |
 | [Operations and monitoring](docs/operations-and-monitoring.md) | Monitored checks, alerting, scheduled tasks, logs, and outage diagnosis |
+
 
 ## Architecture
 
@@ -152,7 +156,7 @@ For a fuller diagram showing how Beszel monitors system/container health at a hi
 
 | Component | Purpose |
 |---|---|
-| [Bezsel](https://www.beszel.dev/) | System/contain health monitoring | 
+| [Bezsel](https://www.beszel.dev/) | System/container health monitoring | 
 | [Uptime Kuma](https://uptime.kuma.pet/) | Service monitoring and scheduled-job heartbeat monitoring | 
 | [Signal integration](https://github.com/bbernhard/signal-cli-rest-api) | Failure notifications from Uptime Kuma |
 | [Tailscale](https://tailscale.com/) | Private connectivity between trusted devices |
@@ -172,9 +176,11 @@ The server uses two USB-attached SSDs:
 
 Filesystem mount configuration is documented under `filesystem/etc/fstab`.
 
-Syncthing is configured around the Raspberry Pi as the central (always-on) synchronization point for the Obsidian vault and mobile photo uploads. This design avoids direct laptop-to-laptop or phone-to-laptop synchronization and potential conflicts (when one device is offline). The sync setup for the Obsidian vault is bidirectional allowing changes to be pushed to and pulled from the Raspberry Pi. By contrast, the mobile photo sync is a unidirectional sync; where the mobile device (phone) routinely uploads images to the Raspberry Pi while it awaits an organization process.
+Syncthing is configured around the Raspberry Pi as the central (always-on) synchronization point for the Obsidian vault and mobile photo uploads. This design avoids direct laptop-to-laptop or phone-to-laptop synchronization and potential conflicts (when one device is offline) - see [here for more](docs/known-issues.md).  
 
-Mobile photo organization is automated with a script that uses Phockup to organize uploaded images into a date-based timeline. The workflow copies organized images rather than deleting the original uploads.
+The sync setup for the Obsidian vault is bidirectional allowing changes to be pushed to and pulled from the Raspberry Pi. By contrast, the mobile photo sync is a unidirectional sync; where the mobile device (phone) routinely uploads images to the Raspberry Pi while it awaits an organization process.
+
+Mobile photo organization is automated with a script that uses Phockup to organize uploaded images into a date-based timeline folder/subfolder structure. The workflow copies organized images rather than deleting the original uploads.  
 
 A local Git repository tracks Obsidian vault changes on the Raspberry Pi. This provides daily change history alongside the separate Restic backup process (and simple file versioning set up in Syncthing).
 
@@ -188,11 +194,11 @@ Two scheduled Restic jobs run daily:
 | 06:00 | Primary-drive data backup |
 
 Both jobs use the local Restic repository on the secondary SSD. The repository is encrypted, and its password is stored separately from this public documentation.
-These jobs are scheduled using the cron service but can equally be set up with unit/timer files for a system d service.
+These jobs are scheduled using the cron service but can equally be set up with unit/timer files for a systemd service.
 
 Uptime Kuma receives a push heartbeat when a backup command completes successfully. This allows the monitoring system to alert when an expected heartbeat is missed.
 
-**Current limitation:** The second SSD helps separate the backup destination from the primary data drive, but it does not protect against loss of the entire server or both drives. Offsite backup is planned via Backblaze B2.  
+**Current limitation:** The second SSD helps separate the backup destination from the primary data drive, but it does not protect against loss of the entire server or both drives. Offsite backup is planned via Backblaze B2. This is documented in [Known issues](docs/known-issues.md)
 
 _User cron table (ada)_
 ```shell
@@ -226,11 +232,11 @@ Signal notifications are configured for monitored failures.
 
 The heartbeat checks indicate that a script reached its success-reporting point. They should not be interpreted as proof that all expected data was processed, that synchronization completed without conflicts, or that a backup is fully restorable.
 
-Because Uptime Kuma runs on the same Raspberry Pi, a complete host outage can also take down the monitoring system. Independent monitoring from another device or service to monitor the Pi itself is also planned (maybe a second Pi and they monitor each other? Not sure, we shall see).
+Because Uptime Kuma runs on the same Raspberry Pi, a complete host outage can also take down the monitoring system. Independent monitoring from another device or service to monitor the Pi itself is also planned (maybe a second Pi and they monitor each other? Not sure, we shall see). Will add this to the [Known issues](docs/known-issues.md) as well.
 
 Beyond availability, Beszel also help with monitoring as it monitors the health of the headless Raspberry Pi itself as well as all of the containers running on it tracking metrics like CPU/GPU usage, Disk/Memory/Network activity and more so I can review historical data via the dashboard.
 
-For further diagnoses I can use tool like [btop++](https://github.com/aristocratos/btop), [dysk](https://github.com/Canop/dysk), [darya](https://github.com/mrkatebzadeh/darya), [lazydocker](https://github.com/jesseduffield/lazydocker), [dcv](https://github.com/tokuhirom/dcv), and general cli utilities to investigate.
+For further diagnoses I use tools like [btop++](https://github.com/aristocratos/btop), [dysk](https://github.com/Canop/dysk), [darya](https://github.com/mrkatebzadeh/darya), [lazydocker](https://github.com/jesseduffield/lazydocker), [dcv](https://github.com/tokuhirom/dcv), and general cli utilities to investigate.
 
 ## Repository layout
 
@@ -254,7 +260,6 @@ filesystem/
     └── .restic/
         ├── restic_backup_data.sh
         ├── restic_backup_system.sh
-        ├── restic_exclude.txt
         ├── restic.log
         ├── restic_pass
         ├── restic_repo_name
@@ -286,10 +291,12 @@ Planned or potential improvements include:
 
 These items are distinguished from the features currently implemented so that the documentation reflects the actual state of the system.
 
+For more on known issues and things to improve see [here for more](docs/known-issues.md).  
+
 ## Purpose: Learning and engineering focus
 
-This project is designed to demonstrate practical work with Linux storage and permissions, Docker Compose, private networking, Bash automation, backup operations, monitoring, and notification integrations.
+This really is my home lab setup but I'm sharing it here to demonstrate practical work with Linux storage and permissions, Docker Compose, private networking, Bash automation, backup operations, monitoring, and notification integrations.
 
 The emphasis is on integrating these components into a useful system and documenting the operational decisions and trade-offs involved.
-I plan on adding more info as I troubleshoot generally and as I ad more features/updates.
+I plan on adding more info as I troubleshoot generally and as I add more features/updates.
 
