@@ -24,7 +24,7 @@ Restic encrypts every repository. Both scripts pass these two files:
 - `--repository-file /root/.restic/restic_repo_name` holds the repository path, which is under `/media/HDD-Seagate-2TB-Backup/restic-repo`.
 - `--password-file /root/.restic/restic_pass` holds the repository password.
 
-**Without this password the backups can't be decrypted.** Keep a copy somewhere other than the Pi, such as a password manager. A copy stored only on the Pi or the backup SSD would be lost along with them.
+**Without this password the backups can't be decrypted.** Best to keep a copy somewhere other than the Pi, such as a password manager  
 
 ### Exclusions
 
@@ -37,7 +37,6 @@ Restic encrypts every repository. Both scripts pass these two files:
 
 **Data backup.** It excludes only `.deleted`.
 
-[`restic_exclude.txt`](../filesystem/root/.restic/restic_exclude.txt) is **not used** by either script. Its patterns also differ slightly from the inline ones (`node_modules` and `.Trash` versus `.node_modules` and `..Trash`). Either pass it with `--exclude-file` or delete it, so there is only one list to maintain.
 
 ### Run sequence and monitoring
 
@@ -133,7 +132,6 @@ For the Obsidian vault, the local Git history and Syncthing's file versioning ar
 
 4. Start the services again and check Syncthing. Make sure it doesn't push stale data over newer copies on other devices.
 
----
 
 ## More restore procedures
 
@@ -194,7 +192,21 @@ restic restore latest --host system-ada-pi-server \
 
 Then copy across what you need, such as `/etc/fstab`, the Compose directories, the crontabs in `/var/spool/cron/crontabs/`, and the SSH host keys. Restoring all of `/` over a running system isn't supported. To rebuild a whole host, see the checklist below.
 
+
+
+## Known gaps
+
+- **No offsite copy.** Losing the whole Pi, or both drives at once (theft, fire, or a power surge), loses everything. Backblaze B2 is planned.
+- **The backup drive is writable over Samba.** The `myhdd-backup` share is writable by `ada`, will likely remove it (or at least not make it writable).
+- **Prune failures are not reported.** The heartbeat is sent before `forget --prune` runs.
+
+## Fixed issues
+
+Fixed issues relating to backups are documented in [known Issues](https://github.com/QuantumZenoSix/home-lab/edit/main/docs/fixed-issues.md).
+
+<!--
 <br />
+
 
 ## Recovery checklist
 
@@ -229,27 +241,4 @@ Each step can be tested without damaging the live system. Record the date of eac
 |---|---|---|---|
 | TODO | | | |
 
-## Known gaps
-
-- **No offsite copy.** Losing the whole Pi, or both drives at once (theft, fire, or a power surge), loses everything. Backblaze B2 is planned.
-- **The backup drive is writable over Samba.** The `myhdd-backup` share is writable by `ada`, will likely remove it (or at least not make it writable).
-- **No repository check runs on a schedule.** See [Repository checks](#repository-checks).
-- **Prune failures are not reported.** The heartbeat is sent before `forget --prune` runs.
-
-## Fixed issues
-
-### Data backup could prune real snapshots when the primary drive was missing
-
-**Problem.** The data script checked only that the *backup* drive was present. The primary drive is mounted with `nofail`, so when it's missing the Pi still boots and `/media/HDD-Seagate-1TB-Primary` is just an empty directory on the SD card. In that state the script:
-
-1. Passed its guard, because the backup drive was fine.
-2. Backed up the empty directory. Restic treats that as a successful backup.
-3. Sent the success heartbeat, so Uptime Kuma showed green.
-4. Ran `forget --keep-daily 7 --prune`, which counted the empty snapshot as that day's backup.
-
-After seven days of this, retention would have pruned every snapshot that still held real data, without a single alert.
-
-**Fix.** [`restic_backup_data.sh`](../filesystem/root/.restic/restic_backup_data.sh) now checks `mountpoint -q /media/HDD-Seagate-1TB-Primary` before doing anything else. If the drive isn't mounted, the script exits with status 1, so nothing is backed up or pruned. The missing heartbeat then triggers a Signal alert.
-
-The system backup didn't need this guard. Its source is `/`, which is always present, and it excludes `/media`.
-
+-->
