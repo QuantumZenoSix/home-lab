@@ -176,7 +176,7 @@ The server uses two USB-attached SSDs:
 
 Filesystem mount configuration is documented under `filesystem/etc/fstab`.
 
-Syncthing is configured around the Raspberry Pi as the central (always-on) synchronization point for the Obsidian vault and mobile photo uploads. This design avoids direct laptop-to-laptop or phone-to-laptop synchronization and potential conflicts (when one device is offline) - see [here for more](docs/known-issues.md).  
+Syncthing is configured around the Raspberry Pi as the central (always-on) synchronization point for the Obsidian vault and mobile photo uploads. This design avoids direct laptop-to-laptop or phone-to-laptop synchronization and potential conflicts (when one device is offline) - see [here for more](https://github.com/QuantumZenoSix/home-lab/issues/10).  
 
 The sync setup for the Obsidian vault is bidirectional allowing changes to be pushed to and pulled from the Raspberry Pi. By contrast, the mobile photo sync is a unidirectional sync; where the mobile device (phone) routinely uploads images to the Raspberry Pi while it awaits an organization process.
 
@@ -198,7 +198,7 @@ These jobs are scheduled using the cron service but can equally be set up with u
 
 Uptime Kuma receives a push heartbeat when a backup command completes successfully. This allows the monitoring system to alert when an expected heartbeat is missed.
 
-**Current limitation:** The second SSD helps separate the backup destination from the primary data drive, but it does not protect against loss of the entire server or both drives. Offsite backup is planned via Backblaze B2. This is documented in [Known issues](docs/known-issues.md)
+**Current limitation:** The second SSD helps separate the backup destination from the primary data drive, but it does not protect against loss of the entire server or both drives. Offsite backup is planned via Backblaze B2. This is documented in [here](https://github.com/QuantumZenoSix/home-lab/issues/1)
 
 _User cron table (ada)_
 ```shell
@@ -232,7 +232,7 @@ Signal notifications are configured for monitored failures.
 
 The heartbeat checks indicate that a script reached its success-reporting point. They should not be interpreted as proof that all expected data was processed, that synchronization completed without conflicts, or that a backup is fully restorable.
 
-Because Uptime Kuma runs on the same Raspberry Pi, a complete host outage can also take down the monitoring system. Independent monitoring from another device or service to monitor the Pi itself is also planned (maybe a second Pi and they monitor each other? Not sure, we shall see). Will add this to the [Known issues](docs/known-issues.md) as well.
+Because Uptime Kuma runs on the same Raspberry Pi, a complete host outage can also take down the monitoring system. Independent monitoring from another device or service to monitor the Pi itself is also planned (maybe a second Pi and they monitor each other? Not sure, we shall see). Tracking this [here](https://github.com/QuantumZenoSix/home-lab/issues/5).
 
 Beyond availability, Beszel also help with monitoring as it monitors the health of the headless Raspberry Pi itself as well as all of the containers running on it tracking metrics like CPU/GPU usage, Disk/Memory/Network activity and more so I can review historical data via the dashboard.
 
@@ -291,7 +291,7 @@ Planned or potential improvements include:
 
 These items are distinguished from the features currently implemented so that the documentation reflects the actual state of the system.
 
-For more on known issues and things to improve see [here for more](docs/known-issues.md).  
+For more on known issues and things to improve see the [issues section](https://github.com/QuantumZenoSix/home-lab/issues).  
 
 ## Purpose: Learning and engineering focus
 
