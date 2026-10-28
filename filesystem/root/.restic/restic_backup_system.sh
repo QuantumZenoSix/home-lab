@@ -48,7 +48,7 @@ if [ -d /media/HDD-Seagate-2TB-Backup/restic-repo ]; then
          if [[ $? -eq 0 ]];then
                  # Send kuma a heartbeat when pruning succeeds
                  PRUNE_URL=$(cat /root/.restic/.env_restic_backup_system_prune)
-                 curl -s -o /dev/null $PUNE_URL
+                 curl -s -o /dev/null $PRUNE_URL
 
          fi
 
