@@ -22,7 +22,7 @@ if [ -d /media/HDD-Seagate-2TB-Backup/restic-repo ]; then
 
 	 if [[ $? -eq 0 ]];then
 		 echo "pusing notification to updatime kuma..."
-		 PUSH_URL=$(cat /root/.restic/.env_restic_backup_data)		 
+		 PUSH_URL=$(cat /root/.restic/.env_restic_backup_data | xargs)		 
 		 curl -s -o /dev/null $PUSH_URL
 	 fi
 
