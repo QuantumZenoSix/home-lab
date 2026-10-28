@@ -33,6 +33,8 @@
          restart: unless-stopped
          network_mode: host
          volumes:
+           # Template
+           # - SHARE0=share_name;container_path;browseable?;readonly?;guest_access;allowed_user;allowed_group
            - /media/HDD-Seagate-1TB-Primary:/mount/myhdd
            - /media/HDD-Seagate-2TB-Backup:/mount/myhdd2
          environment:
