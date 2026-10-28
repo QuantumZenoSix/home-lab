@@ -40,7 +40,7 @@
          environment:
            - USER=ada;myfakesambapassword   # Change this!
            - SHARE1=myhdd;/mount/myhdd;yes;no;no;ada;ada
-           - SHARE2=myhdd-backup;/mount/myhdd2;yes;no;no;ada;ada
+           #- SHARE2=myhdd-backup;/mount/myhdd2;yes;no;no;ada;ada
            - GLOBAL=workgroup = WORKGROUP
            #- GLOBAL=client min protocol = CORE
            #- GLOBAL=client max protocol = SMB3
