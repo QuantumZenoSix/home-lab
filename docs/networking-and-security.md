@@ -57,24 +57,35 @@ Until one of these is in place, assume that ports 3001 and 8090 can be reached f
 
 ## UFW
 
-**TODO:** paste the output of `sudo ufw status verbose` here, with sensitive addresses removed. It should show:
-
-- The default policies. The expected setup is `deny (incoming)`, `allow (outgoing)`.
-- Interface-specific rules, such as `ufw allow in on tailscale0`.
-- Any LAN rules, for example for Samba or Syncthing discovery.
-
-```text
-# sudo ufw status verbose
+```shell
+ada@ada-pi-server:~ $ sudo ufw status verbose
 Status: active
-Default: deny (incoming), allow (outgoing), ...
-...
+Logging: on (low)
+Default: deny (incoming), allow (outgoing), deny (routed)
+New profiles: skip
+
+To                         Action      From
+--                         ------      ----
+Anywhere on tailscale0     ALLOW IN    Anywhere
+Anywhere (v6) on tailscale0 ALLOW IN    Anywhere (v6)
 ```
 
 ## SSH
 
 - Authentication is by public key only. Root login is disabled.
-- **TODO:** confirm the effective settings with `sudo sshd -T | grep -Ei 'passwordauthentication|permitrootlogin|pubkeyauthentication|kbdinteractive|listenaddress'`.
-- **TODO:** state whether SSH is restricted to `tailscale0` by UFW, `ListenAddress`, or both.
+
+```shell
+# sudo sshd -T | grep -Ei 'passwordauthentication|permitrootlogin|pubkeyauthentication|kbdinteractive|listenaddress'
+listenaddress [::]:22
+listenaddress 0.0.0.0:22
+permitrootlogin no
+pubkeyauthentication yes
+passwordauthentication yes
+kbdinteractiveauthentication no
+```  
+
+SSH is restricted to `tailscale0` by UFW.
+
 
 ## Other security notes from the configuration
 
