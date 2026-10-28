@@ -42,7 +42,7 @@ Restic encrypts every repository. Both scripts pass these two files:
 
 Each script runs these steps:
 
-1. **Data backup only:** checks that the primary drive is mounted (`mountpoint -q /media/HDD-Seagate-1TB-Primary`). If it isn't, the script exits with status 1. See [Fixed issues](#fixed-issues).
+1. **Data backup only:** checks that the primary drive is mounted (`mountpoint -q /media/HDD-Seagate-1TB-Primary`). If it isn't, the script exits with status 1. See [issue addressed here](https://github.com/QuantumZenoSix/home-lab/issues/9).
 2. Checks that `/media/HDD-Seagate-2TB-Backup/restic-repo` exists. If it doesn't, for example because the backup drive isn't mounted, the script exits without doing anything.
 3. Runs `restic backup`.
 4. If the backup exited with status 0, sends a push heartbeat to Uptime Kuma.
@@ -199,10 +199,6 @@ Then copy across what you need, such as `/etc/fstab`, the Compose directories, t
 - **No offsite copy.** Losing the whole Pi, or both drives at once (theft, fire, or a power surge), loses everything. Backblaze B2 is planned.
 - **The backup drive is writable over Samba.** The `myhdd-backup` share is writable by `ada`, will likely remove it (or at least not make it writable).
 - **Prune failures are not reported.** The heartbeat is sent before `forget --prune` runs.
-
-## Fixed issues
-
-Fixed issues relating to backups are documented in [known Issues](https://github.com/QuantumZenoSix/home-lab/edit/main/docs/fixed-issues.md).
 
 <!--
 <br />
