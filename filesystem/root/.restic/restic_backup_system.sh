@@ -30,7 +30,7 @@ if [ -d /media/HDD-Seagate-2TB-Backup/restic-repo ]; then
 
 	if [[ $? -eq 0 ]];then
 		echo "pusing notification to updatime kuma..."
-		PUSH_URL="http://ada-pi-server:3001/api/push/${SIGNAL_KEY}?status=up&msg=OK&ping="
+		PUSH_URL=$(cat /root/.restic/.env_restic_backup_system | xargs)
 		curl -s -o /dev/null $PUSH_URL
 	fi
 
