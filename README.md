@@ -251,6 +251,8 @@ filesystem/
 │       ├── homelab/
 │       │   └── docker-compose.yml
 │       ├── scripts/
+│       │   ├── .env_auto_commit_obsidian
+│       │   ├── .env_organize_mobile_photos
 │       │   ├── auto_commit_obsidian.log
 │       │   ├── auto_commit_obsidian.sh
 │       │   └── organize_mobile_photos.sh
@@ -258,6 +260,10 @@ filesystem/
 │           └── docker-compose.yml
 └── root/
     └── .restic/
+        ├── .env_restic_backup_data
+        ├── .env_restic_backup_data_prune
+        ├── .env_restic_backup_system
+        ├── .env_restic_backup_system_prune
         ├── restic_backup_data.sh
         ├── restic_backup_system.sh
         ├── restic.log
