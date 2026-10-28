@@ -5,6 +5,7 @@ Places I could improve this project.
 - **No offsite copy.** Losing the whole Pi, or both drives at once (theft, fire, or a power surge), loses everything. Backblaze B2 is planned.
 - **The backup drive is writable over Samba.** The `myhdd-backup` share is writable by `ada`, will likely remove it (or at least not make it writable).
 - **Prune failures are not reported.** The heartbeat is sent before `forget --prune` runs.
+- **Uptime Kuma API keys hardcoded.** Kuma keys should be read from hidden files instead of hardcoded into shell scripts and send push requests.
 
 <br />
 
