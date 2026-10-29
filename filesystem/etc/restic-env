@@ -1,0 +1,2 @@
+export RESTIC_REPOSITORY=/media/HDD-Seagate-2TB-Backup/restic-repo
+export RESTIC_PASSWORD_FILE=/etc/restic-password
