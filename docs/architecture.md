@@ -68,7 +68,7 @@ Uptime Kuma and the Beszel agent both mount `/var/run/docker.sock`, which lets t
 3. **Media.** Jellyfin reads from the primary drive (music, photo timeline, etc) and never writes to it.
 4. **File sharing.** Samba serves both drives over SMB. Both shares are writable by `ada`.
 5. **Backups.** Restic backs up the system (`/`, excluding `/media` and other volatile paths) at 04:30 and the primary drive at 06:00. Both go to the encrypted repository on the secondary SSD. See [backups-and-recovery.md](backups-and-recovery.md).
-6. **Monitoring.** Uptime Kuma checks the three application services and receives a heartbeat from each of the three monitored jobs. Missed checks trigger a Signal alert. Beszel records resource metrics for the host and its containers. See [operations-and-monitoring.md](operations-and-monitoring.md).
+6. **Monitoring.** Uptime Kuma checks the three application services and receives push heartbeats from the scheduled jobs: both backups, both prunes, photo organization, and the Obsidian auto-commit. Missed checks trigger a Signal alert. Beszel records resource metrics for the host and its containers. See [operations-and-monitoring.md](operations-and-monitoring.md).
 
 ## Diagram
 
