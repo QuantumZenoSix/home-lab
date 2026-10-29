@@ -57,9 +57,9 @@ Uptime Kuma and the Beszel agent both mount `/var/run/docker.sock`, which lets t
 | Time | Crontab | Script | Reports to Uptime Kuma |
 |---|---|---|---|
 | Every 4 hours | `ada` | [`organize_mobile_photos.sh`](../filesystem/home/ada/scripts/organize_mobile_photos.sh) | Yes |
-| 05:00 daily | `ada` | [`auto_commit_obsidian.sh`](../filesystem/home/ada/scripts/auto_commit_obsidian.sh) | No |
-| 04:30 daily | `root` | [`restic_backup_system.sh`](../filesystem/root/.restic/restic_backup_system.sh) | Yes |
-| 06:00 daily | `root` | [`restic_backup_data.sh`](../filesystem/root/.restic/restic_backup_data.sh) | Yes |
+| 03:30 daily | `root` | [`restic_backup_system.sh`](../filesystem/root/.restic/restic_backup_system.sh) | Yes |
+| 05:00 daily | `ada` | [`auto_commit_obsidian.sh`](../filesystem/home/ada/scripts/auto_commit_obsidian.sh) | Yes |
+| 05:00 daily | `root` | [`restic_backup_data.sh`](../filesystem/root/.restic/restic_backup_data.sh) | Yes |
 
 ## Data flows
 
@@ -67,7 +67,7 @@ Uptime Kuma and the Beszel agent both mount `/var/run/docker.sock`, which lets t
 2. **Mobile photos.** The phone uploads one-way into `MobileUploads/`. Every four hours Phockup **copies** the new files into a date-based tree under `Photo Timelime/`. The originals stay in place.
 3. **Media.** Jellyfin reads from the primary drive (music, photo timeline, etc) and never writes to it.
 4. **File sharing.** Samba serves both drives over SMB. Both shares are writable by `ada`.
-5. **Backups.** Restic backs up the system (`/`, excluding `/media` and other volatile paths) at 04:30 and the primary drive at 06:00. Each job writes first to the encrypted repository on the secondary SSD, then to a separate encrypted repository in a Backblaze B2 bucket. See [backups-and-recovery.md](backups-and-recovery.md).
+5. **Backups.** Restic backs up the system (`/`, excluding `/media` and other volatile paths) at 03:30 and the primary drive at 05:00. Each job writes first to the encrypted repository on the secondary SSD, then to a separate encrypted repository in a Backblaze B2 bucket. See [backups-and-recovery.md](backups-and-recovery.md).
 6. **Monitoring.** Uptime Kuma checks the three application services and receives push heartbeats from the scheduled jobs: both backups and both prunes (separately for the local and B2 repositories), photo organization, and the Obsidian auto-commit. Missed checks trigger a Signal alert. Beszel records resource metrics for the host and its containers. See [operations-and-monitoring.md](operations-and-monitoring.md).
 
 ## Diagram

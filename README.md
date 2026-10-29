@@ -31,6 +31,7 @@ Beszel monitors system and container health via the web UI and configurable noti
 | [Networking and security](docs/networking-and-security.md) | Tailscale, UFW, SSH, service exposure, and how to verify it |
 | [Backups and recovery](docs/backups-and-recovery.md) | Restic jobs, retention, repository checks, restore procedures, and a recovery checklist |
 | [Operations and monitoring](docs/operations-and-monitoring.md) | Monitored checks, alerting, scheduled tasks, logs, and outage diagnosis |
+| [Provisioning](provisioning/README.md) | Setting up or rebuilding the Pi: the provisioning script, then firewall, drives, secrets, containers, and crontabs |
 
 
 ## Architecture
@@ -193,8 +194,8 @@ Two scheduled Restic jobs run daily:
 
 | Schedule | Backup |
 |---|---|
-| 04:30 | Raspberry Pi system backup |
-| 06:00 | Primary-drive data backup |
+| 03:30 | Raspberry Pi system backup |
+| 05:00 | Primary-drive data backup |
 
 Each job backs up to two Restic repositories in turn: the local repository on the secondary SSD, then an offsite repository in a Backblaze B2 bucket (through B2's S3-compatible API). Each repository is encrypted with its own password, and the passwords are stored separately from this public documentation. The scripts load each repository's settings from environment files in `/etc/` (`restic-env` and `restic-env-b2`).
 These jobs are scheduled using the cron service but can equally be set up with unit/timer files for a systemd service.
@@ -211,8 +212,8 @@ _User cron table (ada)_
 
 _Root cron table_
 ```shell
-30 4 * * * /root/.restic/restic_backup_system.sh
-0 6 * * * /root/.restic/restic_backup_data.sh
+30 3 * * * /root/.restic/restic_backup_system.sh
+0  5 * * * /root/.restic/restic_backup_data.sh
 ```  
 
 ## Automation
@@ -225,7 +226,7 @@ The project includes scheduled scripts for:
 - Backing up primary-drive data with Restic (local SSD and Backblaze B2).
 - Reporting successful automation runs to Uptime Kuma.
 
-The user crontab schedules the Obsidian Git commit daily at 05:00 and the photo organization task every four hours. The two Restic jobs run from root's crontab at 04:30 and 06:00, respectively.
+The user crontab schedules the Obsidian Git commit daily at 05:00 and the photo organization task every four hours. The two Restic jobs run from root's crontab at 03:30 and 05:00, respectively.
 
 ## Monitoring and notifications
 
