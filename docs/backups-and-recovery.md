@@ -47,12 +47,14 @@ Each script runs these steps:
 3. Runs `restic backup`.
 4. If the backup exited with status 0, sends a push heartbeat to Uptime Kuma.
 5. Runs `restic forget --keep-daily 7 --prune`.
+6. If that exited with status 0, sends a separate prune heartbeat to Uptime Kuma.
 
 When a backup fails, or either drive is missing, no heartbeat is sent. Uptime Kuma then raises a Signal alert once the push monitor's interval runs out.
 
-What the heartbeat does **not** tell you:
+A failed prune is reported separately: its heartbeat isn't sent, and its own Kuma monitor goes down.
 
-- Whether `forget`/`prune` succeeded, because they run after the heartbeat has been sent.
+What the heartbeats do **not** tell you:
+
 - Whether the repository is consistent, or whether any of it can be restored.
 - Whether every expected file was included. The mount guard catches a missing drive, but not a drive that is mounted with missing or damaged folders.
 
@@ -197,8 +199,6 @@ Then copy across what you need, such as `/etc/fstab`, the Compose directories, t
 ## Known gaps
 
 - **No offsite copy.** Losing the whole Pi, or both drives at once (theft, fire, or a power surge), loses everything. Backblaze B2 is planned.
-- **The backup drive is writable over Samba.** The `myhdd-backup` share is writable by `ada`, will likely remove it (or at least not make it writable).
-- **Prune failures are not reported.** The heartbeat is sent before `forget --prune` runs.
 
 <!--
 <br />
