@@ -14,34 +14,47 @@ Uptime Kuma and Beszel both run **on the Pi they monitor**. When the whole host 
 
 ## Uptime Kuma checks
 
-There are six monitors: three service checks and three push heartbeats.
+There are nine monitors: three Docker container checks and six push heartbeats.
 
-| # | Monitor | Type | Fails when |
-|---|---|---|---|
-| 1 | Jellyfin | TODO (HTTP / TCP / Docker container) | The service doesn't respond within the retry window |
-| 2 | Syncthing | TODO | The service doesn't respond within the retry window |
-| 3 | Samba | TODO | The service doesn't respond within the retry window |
-| 4 | System backup | Push | No heartbeat within the interval after 04:30 |
-| 5 | Data backup | Push | No heartbeat within the interval after 06:00 |
-| 6 | Photo organization | Push | No heartbeat within the interval after the 4-hourly run |
+| # | Monitor | Type | Interval | Retries | Goes down when |
+|---|---|---|---|---|---|
+| 1 | Syncthing Service | Docker container | 60 s | 3, 60 s apart | The `syncthing` container stops running |
+| 2 | Jellyfin Service | Docker container | 60 s | 3, 60 s apart | The `jellyfin` container stops running |
+| 3 | Samba Service | Docker container | 60 s | 3, 60 s apart | The `samba` container stops running |
+| 4 | Daily Restic Backup (Raspberry Pi) | Push | 100,000 s (about 27.8 h) | 0 | No system-backup heartbeat within the interval |
+| 5 | Daily Restic Backup (Primary SSD) | Push | 100,000 s (about 27.8 h) | 0 | No data-backup heartbeat within the interval |
+| 6 | Routine mobile photo sync | Push | 4 h | 2, 4 h apart | No photo-organization heartbeat within the interval and retries |
+| 7 | Daily Obsidian auto commit | Push | 24 h | 2, 24 h apart | No Obsidian auto-commit heartbeat within the interval and retries |
+| 8 | Daily Restic Backup Pruning (Primary SSD) | Push | 24 h | 2, 24 h apart | No data-prune heartbeat within the interval and retries |
+| 9 | Daily Restic Backup Pruning (Raspberry Pi) | Push | 24 h | 2, 24 h apart | No system-prune heartbeat within the interval and retries |
 
-**TODO:** for each monitor, record its type, check interval, retries, and (for push monitors) heartbeat interval. Uptime Kuma runs on a bridge network, so a check against `localhost` reaches the Kuma container itself, not the host-network services. Service checks should target the Pi's hostname or IP.
+Limits of the Docker container checks:
+
+- They confirm that the container is running, not that the service answers. A hung Jellyfin inside a running container stays green.
+- The monitors identify the containers by ID, not by name. Recreating a container (for example, `docker compose up -d` after pulling a new image) gives it a new ID, and the monitor then fails until it is edited. Setting each monitor's container to its name (`jellyfin`, `syncthing`, `samba`) avoids this.
 
 ### Push heartbeat behavior
 
-A script sends its heartbeat only when its main command exits with status 0. Kuma then marks the monitor down if no heartbeat arrives within the configured interval. Size each interval to the job's schedule plus its run time:
+A script sends its heartbeat only when its main command exits with status 0. When the interval passes without a heartbeat, Kuma marks the monitor pending. It marks the monitor down, and sends a Signal alert, once the retries have also passed without a heartbeat.
 
-| Job | Runs | Typical duration | Suggested heartbeat interval |
+The durations below are estimates. They come from the heartbeat timestamps in Kuma's database between 25 and 28 October 2026, compared with each job's cron start time.
+
+| Job | Runs | Typical duration | Kuma interval |
 |---|---|---|---|
-| System backup | Daily, 04:30 | TODO | 25 h |
-| Data backup | Daily, 06:00 | About 55 min (sample log) | 25 h |
-| Photo organization | Every 4 hours | TODO | 4.5 h |
+| System backup | Daily, 04:30 | 1–7 min | About 27.8 h, no retries |
+| Data backup | Daily, 06:00 | About 1.5–2 h | About 27.8 h, no retries |
+| Data prune | After the data backup | About 13 min (one run) | 24 h, 2 retries |
+| Photo organization | Every 4 hours | About 32–35 min | 4 h, 2 retries |
+| Obsidian auto-commit | Daily, 05:00 | About 2 min | 24 h, 2 retries |
 
-A heartbeat means the script reached its success line. It doesn't confirm that every expected file was processed, that the backup can be restored, or that pruning succeeded. See [backups-and-recovery.md](backups-and-recovery.md#run-sequence-and-monitoring).
+The photo-organization interval equals the cron period. A run that takes a few seconds longer than the previous one puts the monitor into pending before its heartbeat arrives, and the heartbeat log shows this several times a day. An interval of 4.5 h would stop the pending flips while still alerting within a few hours.
+
+A heartbeat means the script reached its success line. It doesn't confirm that every expected file was processed or that the backup can be restored. Pruning has its own monitors, because the prune heartbeat is sent separately after `forget --prune` succeeds. See [backups-and-recovery.md](backups-and-recovery.md#run-sequence-and-monitoring).
+
+The Obsidian script sends its heartbeat even when there is nothing to commit, so its monitor confirms that the job ran, not that a commit was made. Its output is appended to `/home/ada/scripts/auto_commit_obsidian.log`.
 
 ### Not monitored
 
-- **Obsidian auto-commit (05:00).** The script sends no heartbeat. Its output is appended to `/home/ada/scripts/auto_commit_obsidian.log`.
 - **Beszel and Uptime Kuma.** Nothing monitors them, and nothing off the Pi monitors the host itself.
 - **Disk mounts.** No monitor checks the mounts directly. A missing drive surfaces only indirectly, as a missed backup heartbeat the next morning. The data backup refuses to run when the primary drive isn't mounted, and both backups skip when the backup drive is missing.
 
@@ -155,5 +168,5 @@ Record incidents here.
 
 | Date | Symptom | Cause | Fix | Follow-up |
 |---|---|---|---|---|
-| TODO | | | | |
+| | No incidents recorded yet. | | | |
 

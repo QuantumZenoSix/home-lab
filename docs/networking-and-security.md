@@ -9,14 +9,17 @@ This document covers how the Pi is reached, which ports each service listens on,
 - Remote administration and service access go through the **Tailscale** tailnet.
 - No service is meant to be reachable from the public internet. The router has no port forwards to the Pi.
 - Signal alerts are sent from the Pi, so they need outbound connections only.
-
-**TODO:** confirm whether the services are also used directly on the home LAN, or only over Tailscale. The firewall rules below depend on the answer.
+- The services are used **only over Tailscale**, never directly on the home LAN. Anything reachable on the Pi's LAN address is unintended exposure.
 
 ## Tailscale
 
 The Pi and the personal devices are members of the same tailnet. Syncthing, Samba, Jellyfin, and the dashboards are all reached through the Pi's tailnet address or MagicDNS name.
 
-**TODO:** fill in the installation method, whether MagicDNS is enabled, whether ACLs restrict which devices can reach which ports, and whether key expiry is disabled for the Pi.
+- **Installation:** the `tailscale` apt package (1.102.4 at the time of writing).
+- **MagicDNS:** enabled, so tailnet devices can reach the Pi as `ada-pi-server`.
+- **Key expiry:** enabled for the Pi. When the node key expires, the Pi drops off the tailnet until someone re-authenticates it, and every service becomes unreachable remotely. Check the expiry date with `tailscale status --json | jq .Self.KeyExpiry`, or disable key expiry for the Pi in the admin console.
+
+- **ACLs:** the default allow-all policy. Every device on the tailnet can reach every port on the Pi, so the access controls are UFW and each service's own login.
 
 Useful commands:
 
@@ -28,32 +31,41 @@ tailscale ping <device>   # confirms the path to a peer (direct or relayed)
 
 ## Service exposure
 
-Ports in the table come from the Compose files. Where a Compose file doesn't set a port, the table gives the upstream default, which you should confirm with `ss` (see [Verifying exposure](#verifying-exposure)).
+Ports in the table were confirmed with `sudo ss -tulpn` and `docker ps` on the Pi. Every one of them listens on all interfaces (`0.0.0.0` / `[::]`), so the firewall alone decides which ones the LAN can reach.
 
-| Service | Network mode | Ports | Intended reach |
-|---|---|---|---|
-| Jellyfin | host | 8096/tcp (default) | Tailnet |
-| Syncthing GUI | host | 8384/tcp (default) | Tailnet |
-| Syncthing sync and discovery | host | 22000/tcp+udp, 21027/udp (defaults) | Tailnet / LAN |
-| Samba | host | 445/tcp (139/tcp if NetBIOS is on) | Tailnet |
-| Uptime Kuma | bridge | `3001:3001` published on all interfaces | Tailnet |
-| Beszel hub | bridge | `8090:8090` published on all interfaces | Tailnet |
-| Beszel agent | host | None (listens on a Unix socket) | Local only |
-| SSH | host service | 22/tcp | Tailnet |
+| Service | Network mode | Ports | Filtered by UFW | Intended reach |
+|---|---|---|---|---|
+| Jellyfin | host | 8096/tcp, 7359/udp (client discovery) | Yes | Tailnet |
+| Syncthing GUI | host | 8384/tcp | Yes | Tailnet |
+| Syncthing sync and discovery | host | 22000/tcp+udp, 21027/udp | Yes | Tailnet |
+| Samba | host | 445/tcp, 139/tcp (NetBIOS is on) | Yes | Tailnet |
+| Uptime Kuma | bridge | `3001:3001` | **No** | Tailnet |
+| Beszel hub | bridge | `8090:8090` | **No** | Tailnet |
+| Signal API (`signal-api` container) | bridge | `8080:8080` | **No** | Local only (used by Uptime Kuma), but reachable from the whole tailnet |
+| Beszel agent | host | None (listens on a Unix socket) | n/a | Local only |
+| SSH | host service | 22/tcp | Yes | Tailnet |
+| Tailscale | host service | 41641/udp | Yes | WireGuard transport |
+| Avahi (mDNS) | host service | 5353/udp | Yes | Not needed |
+
+The `signal-api` container's Compose file is not in this repository.
 
 ### Docker and UFW
 
 How Docker interacts with UFW is the main exposure risk here:
 
 - **Host-network containers** (Jellyfin, Syncthing, Samba) bind directly to the host's sockets. Their traffic goes through the normal `INPUT` chain, so **UFW rules apply** to them.
-- **Published ports on bridge networks** (Uptime Kuma `3001`, Beszel `8090`) are handled by Docker's own iptables rules in the `FORWARD`/`DOCKER` chains, which UFW never sees. **UFW rules do not restrict these ports.** A `ufw deny 3001` has no effect.
+- **Published ports on bridge networks** (Uptime Kuma `3001`, Beszel `8090`, Signal API `8080`) are handled by Docker's own iptables rules in the `FORWARD`/`DOCKER` chains, which UFW never sees. **UFW rules do not restrict these ports.** A `ufw deny 3001` has no effect.
 
 To keep the published ports off the LAN, use one of these:
 
 - Bind them to the Tailscale address in Compose, for example `"100.x.y.z:3001:3001"`.
 - Add rules to the `DOCKER-USER` chain.
 
-Until one of these is in place, assume that ports 3001 and 8090 can be reached from the LAN.
+**Current state:** neither is in place. The `DOCKER-USER` chain is empty and all three ports are published on `0.0.0.0` and `[::]`. On the Pi, nothing stops ports 3001, 8090, and 8080 from being reached from the LAN, even though the services are meant to be used over Tailscale only.
+
+The ISP router has client isolation enabled, which stops devices on the home network from reaching each other. In practice that keeps these ports away from other LAN devices for now. It is a router setting outside this repository, though, and a router reset or replacement would turn it off without warning, so it doesn't replace fixing the exposure on the Pi.
+
+Client isolation also blocks Tailscale from making a direct connection between the Pi and other devices at home. Tailscale falls back to a DERP relay instead (`tailscale status` shows `relay "lax"`), which slows down Jellyfin streaming and Syncthing transfers on the home network.
 
 ## UFW
 
@@ -72,7 +84,8 @@ Anywhere (v6) on tailscale0 ALLOW IN    Anywhere (v6)
 
 ## SSH
 
-- Authentication is by public key only. Root login is disabled.
+- Public key authentication is enabled and root login is disabled.
+- **Password authentication is still enabled** (`passwordauthentication yes`). UFW keeps SSH off the LAN, but any device on the tailnet can still try a password. Set `PasswordAuthentication no` in `/etc/ssh/sshd_config` to make keys the only option.
 
 ```shell
 # sudo sshd -T | grep -Ei 'passwordauthentication|permitrootlogin|pubkeyauthentication|kbdinteractive|listenaddress'
@@ -91,7 +104,6 @@ SSH is restricted to `tailscale0` by UFW.
 
 These follow directly from the files under `filesystem/`:
 
-- **Samba shares the backup drive (`myhdd-backup`) with write access.** Consider making that share read-only or removing it. See [backups-and-recovery.md](backups-and-recovery.md#known-gaps).
 - **Uptime Kuma mounts the Docker socket read-write.** Docker socket access is equivalent to root on the host, so the Kuma web UI must stay off untrusted networks and use a strong password. The Beszel agent mounts the socket `:ro`, but that only stops the socket file from being replaced. It doesn't limit which Docker API calls the agent can make.
 - **Syncthing runs as root** (`user: "0:0"`) to write to the exFAT drive.
 - **The primary drive is mounted with `umask=000`**, so every local user can read and write every file on it.
@@ -125,7 +137,7 @@ nmap -Pn -p 22,139,445,3001,8090,8096,8384,22000 <pi-lan-ip>
 nmap -Pn -sU -p 21027,22000 <pi-lan-ip>
 ```
 
-Every port that shouldn't be reachable from the LAN should show as `filtered` or `closed`.
+Every port that shouldn't be reachable from the LAN should show as `filtered` or `closed`. While router client isolation is on, every port shows as unreachable whatever the Pi's own rules are, so this scan can't test the Pi's firewall.
 
 **4. Scan from a device on the tailnet**, using the Pi's Tailscale IP. The intended ports should show as `open`.
 
@@ -135,5 +147,5 @@ Record the date and results of the last check here:
 
 | Date | LAN scan | Tailnet scan | External scan | Notes |
 |---|---|---|---|---|
-| TODO | | | | |
+| 2026-10-28 | All TCP ports unreachable. Router client isolation blocks LAN-to-LAN traffic, so this doesn't test the Pi's firewall. | All TCP ports open: 22, 139, 445, 3001, 8080, 8090, 8096, 8384, 22000. | Not run yet. Expected: all closed, since the router has no port forwards. | Docker-published 3001, 8080, and 8090 have no Pi-side restriction. See [Docker and UFW](#docker-and-ufw). The Signal API (8080) is reachable from every tailnet device. |
 
