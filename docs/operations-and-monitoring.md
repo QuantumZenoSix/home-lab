@@ -51,12 +51,7 @@ The photo-organization interval equals the cron period. A run that takes a few s
 
 A heartbeat means the script reached its success line. It doesn't confirm that every expected file was processed or that the backup can be restored. Pruning has its own monitors, because the prune heartbeat is sent separately after `forget --prune` succeeds. See [backups-and-recovery.md](backups-and-recovery.md#run-sequence-and-monitoring).
 
-The Obsidian script sends its heartbeat even when there is nothing to commit, so its monitor confirms that the job ran, not that a commit was made. Its output is appended to `/home/ada/scripts/auto_commit_obsidian.log`.
-
-### Not monitored
-
-- **Beszel and Uptime Kuma.** Nothing monitors them, and nothing off the Pi monitors the host itself.
-- **Disk mounts.** No monitor checks the mounts directly. A missing drive surfaces only indirectly, as a missed backup heartbeat the next morning. The data backup refuses to run when the primary drive isn't mounted, and both backups skip when the backup drive is missing.
+The Obsidian script sends its heartbeat even when there is nothing to commit, so its monitor confirms that the job ran, not that a commit was made. Its output is appended to `/home/ada/scripts/auto_commit_obsidian.log`. I did it this way because sometimes there is nothing to commit and the heartbeat wouldn't run so I'd get false positives.
 
 ## Scheduled tasks
 
@@ -66,11 +61,9 @@ The Obsidian script sends its heartbeat even when there is nothing to commit, so
 0 */4 * * * /home/ada/scripts/organize_mobile_photos.sh
 
 # sudo crontab -l   (root)
-30 4 * * * /root/.restic/restic_backup_system.sh
-0 6 * * * /root/.restic/restic_backup_data.sh
+30 4 * * * /root/.restic/restic_backup_system.sh >> <logfile> 2>&1.
+0 6 * * * /root/.restic/restic_backup_data.sh >> <logfile> 2>&1
 ```
-
-The photo job and both Restic jobs don't redirect their output in these crontab lines. Unless cron is configured to mail it somewhere, their output is discarded. To keep a log, add `>> <logfile> 2>&1` to each line.
 
 Commands to confirm that cron ran a job:
 
