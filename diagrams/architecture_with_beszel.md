@@ -1,5 +1,4 @@
 ```mermaid
-
 flowchart TB
 
 
@@ -78,11 +77,13 @@ flowchart TB
 
 
     %% Backups flow %%
-    Pi e4@--> id1(System Backup) e5@--> SecondarySSD
+    id1(System Backup)
+    Pi e4@--> id1 e5@--> SecondarySSD
     e4@{ animation: fast}    
     e5@{ animation: fast}    
 
-    PrimarySSD e3@--> id2(Data Backup) e6@-->  SecondarySSD
+    id2(Data Backup)
+    PrimarySSD e3@--> id2 e6@-->  SecondarySSD
     e3@{ animation: fast}
     e6@{ animation: fast}    
 
@@ -95,6 +96,8 @@ flowchart TB
     Beszel -.monitors.-> Syncthing
     Beszel -.monitors.-> Samba
     Beszel -.monitors.-> Kuma
+    Beszel -.monitors.-> id1
+    Beszel -.monitors.-> id2
 
 
 
@@ -118,6 +121,8 @@ flowchart TB
     linkStyle 31 stroke-width:4px,stroke:red,stroke-dasharray:3 4,opacity: 0.3
     linkStyle 32 stroke-width:4px,stroke:red,stroke-dasharray:3 4,opacity: 0.3
     linkStyle 33 stroke-width:4px,stroke:red,stroke-dasharray:3 4,opacity: 0.3
+    linkStyle 34 stroke-width:4px,stroke:red,stroke-dasharray:3 4,opacity: 0.3
+    linkStyle 35 stroke-width:4px,stroke:red,stroke-dasharray:3 4,opacity: 0.3
 
 
 
