@@ -128,5 +128,5 @@ Record the date and results of the last check here:
 
 | Date | LAN scan | Tailnet scan | External scan | Notes |
 |---|---|---|---|---|
-| 2026-10-28 | All TCP ports unreachable. Router client isolation blocks LAN-to-LAN traffic, so this doesn't test the Pi's firewall. | All TCP ports open: 22, 139, 445, 3001, 8080, 8090, 8096, 8384, 22000. | Not run yet. Expected: all closed, since the router has no port forwards. | Docker-published 3001, 8080, and 8090 have no Pi-side restriction. See [Docker and UFW](#docker-and-ufw). The Signal API (8080) is reachable from every tailnet device. |
+| 2026-10-28 | All TCP ports unreachable. Router client isolation blocks LAN-to-LAN traffic, so this doesn't test the Pi's firewall. | All TCP ports open: 22, 139, 445, 3001, 8080, 8090, 8096, 8384, 22000. | Not run yet. Expected: all closed, since the router has no port forwards. | Docker-published 3001, 8080, and 8090 have no Pi-side restriction. See [Docker and UFW](https://github.com/QuantumZenoSix/home-lab/issues/13). The Signal API (8080) is reachable from every tailnet device. |
 
