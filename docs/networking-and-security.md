@@ -2,7 +2,6 @@
 
 This document covers how the Pi is reached, which ports each service listens on, how the host firewall and SSH are set up, and how to check that nothing is exposed by accident.
 
-> **Placeholders.** The UFW rules and SSH settings are not stored in this repository. Sections marked **TODO** need values taken from the running Pi. Use the commands in each section to collect them, and remove any addresses or hostnames you don't want published.
 
 ## Intended access model
 
@@ -49,23 +48,6 @@ Ports in the table were confirmed with `sudo ss -tulpn` and `docker ps` on the P
 
 The `signal-api` container's Compose file is not in this repository.
 
-### Docker and UFW
-
-How Docker interacts with UFW is the main exposure risk here:
-
-- **Host-network containers** (Jellyfin, Syncthing, Samba) bind directly to the host's sockets. Their traffic goes through the normal `INPUT` chain, so **UFW rules apply** to them.
-- **Published ports on bridge networks** (Uptime Kuma `3001`, Beszel `8090`, Signal API `8080`) are handled by Docker's own iptables rules in the `FORWARD`/`DOCKER` chains, which UFW never sees. **UFW rules do not restrict these ports.** A `ufw deny 3001` has no effect.
-
-To keep the published ports off the LAN, use one of these:
-
-- Bind them to the Tailscale address in Compose, for example `"100.x.y.z:3001:3001"`.
-- Add rules to the `DOCKER-USER` chain.
-
-**Current state:** neither is in place. The `DOCKER-USER` chain is empty and all three ports are published on `0.0.0.0` and `[::]`. On the Pi, nothing stops ports 3001, 8090, and 8080 from being reached from the LAN, even though the services are meant to be used over Tailscale only.
-
-The ISP router has client isolation enabled, which stops devices on the home network from reaching each other. In practice that keeps these ports away from other LAN devices for now. It is a router setting outside this repository, though, and a router reset or replacement would turn it off without warning, so it doesn't replace fixing the exposure on the Pi.
-
-Client isolation also blocks Tailscale from making a direct connection between the Pi and other devices at home. Tailscale falls back to a DERP relay instead (`tailscale status` shows `relay "lax"`), which slows down Jellyfin streaming and Syncthing transfers on the home network.
 
 ## UFW
 
