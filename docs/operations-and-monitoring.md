@@ -41,12 +41,12 @@ Limits of the Docker container checks:
 
 A script sends its heartbeat only when its main command exits with status 0. When the interval passes without a heartbeat, Kuma marks the monitor pending. It marks the monitor down, and sends a Signal alert, once the retries have also passed without a heartbeat.
 
-The durations below are estimates. They come from the heartbeat timestamps in Kuma's database between 25 and 28 October 2026, compared with each job's cron start time. That was before the backup scripts added the B2 run, so they cover the local repository only. **TODO:** re-measure, and add the B2 backup and prune durations.
+The durations below are estimates. They come from the heartbeat timestamps in Kuma's database between 25 and 28 October 2026, compared with each job's cron start time. That was before the backup scripts added the B2 run, so they cover the local repository only. The backup durations may also have been worked out from the start times the docs used to list (04:30 and 06:00), not the actual 03:30 and 05:00, which would make them about an hour too short. **TODO:** re-measure, and add the B2 backup and prune durations.
 
 | Job | Runs | Typical duration | Kuma interval |
 |---|---|---|---|
-| System backup | Daily, 04:30 | 1–7 min | About 27.8 h, no retries |
-| Data backup | Daily, 06:00 | About 1.5–2 h | About 27.8 h, no retries |
+| System backup | Daily, 03:30 | 1–7 min | About 27.8 h, no retries |
+| Data backup | Daily, 05:00 | About 1.5–2 h | About 27.8 h, no retries |
 | Data prune | After the data backup | About 13 min (one run) | 24 h, 2 retries |
 | Photo organization | Every 4 hours | About 32–35 min | 4 h, 2 retries |
 | Obsidian auto-commit | Daily, 05:00 | About 2 min | 24 h, 2 retries |
@@ -65,8 +65,8 @@ The Obsidian script sends its heartbeat even when there is nothing to commit, so
 0 */4 * * * /home/ada/scripts/organize_mobile_photos.sh
 
 # sudo crontab -l   (root)
-30 4 * * * /root/.restic/restic_backup_system.sh >> <logfile> 2>&1.
-0 6 * * * /root/.restic/restic_backup_data.sh >> <logfile> 2>&1
+30 3 * * * /root/.restic/restic_backup_system.sh
+0  5 * * * /root/.restic/restic_backup_data.sh
 ```
 
 Commands to confirm that cron ran a job:
