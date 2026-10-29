@@ -23,7 +23,7 @@ Both SSDs are USB-attached and mounted by UUID from [`/etc/fstab`](../filesystem
 
 Notes on the mount options:
 
-- **`nofail` on both drives.** The Pi still boots if a drive is missing, but services and scripts that expect the mount will find an empty mount point instead. The backup scripts guard against this by checking that `restic-repo/` exists before running.
+- **`nofail` on both drives.** The Pi still boots if a drive is missing, but services and scripts that expect the mount will find an empty mount point instead. The backup scripts guard against this by checking that `restic-repo/` exists before running the local backup. If it doesn't, they skip the local repository and still back up to Backblaze B2.
 - **The primary drive is exFAT.** exFAT has no POSIX ownership or permissions, so fstab assigns every file to uid/gid 1000 with `umask=000`. This is why the Syncthing container runs as root (`user: "0:0"`). I may switch to ext4, I really only did exFAT for easy switching between windows/linux but I don't even remove it. I think I just didn't want to deak with NTFS but now I hear it's less troublesome so I may have to move away from exFAT in either case (probably ext4).
 - **The backup drive mount has `x-systemd.device-timeout=10`.** If the drive is absent, boot waits only 10 seconds for it instead of the default 90.
 
@@ -67,12 +67,12 @@ Uptime Kuma and the Beszel agent both mount `/var/run/docker.sock`, which lets t
 2. **Mobile photos.** The phone uploads one-way into `MobileUploads/`. Every four hours Phockup **copies** the new files into a date-based tree under `Photo Timelime/`. The originals stay in place.
 3. **Media.** Jellyfin reads from the primary drive (music, photo timeline, etc) and never writes to it.
 4. **File sharing.** Samba serves both drives over SMB. Both shares are writable by `ada`.
-5. **Backups.** Restic backs up the system (`/`, excluding `/media` and other volatile paths) at 04:30 and the primary drive at 06:00. Both go to the encrypted repository on the secondary SSD. See [backups-and-recovery.md](backups-and-recovery.md).
-6. **Monitoring.** Uptime Kuma checks the three application services and receives push heartbeats from the scheduled jobs: both backups, both prunes, photo organization, and the Obsidian auto-commit. Missed checks trigger a Signal alert. Beszel records resource metrics for the host and its containers. See [operations-and-monitoring.md](operations-and-monitoring.md).
+5. **Backups.** Restic backs up the system (`/`, excluding `/media` and other volatile paths) at 04:30 and the primary drive at 06:00. Each job writes first to the encrypted repository on the secondary SSD, then to a separate encrypted repository in a Backblaze B2 bucket. See [backups-and-recovery.md](backups-and-recovery.md).
+6. **Monitoring.** Uptime Kuma checks the three application services and receives push heartbeats from the scheduled jobs: both backups and both prunes (separately for the local and B2 repositories), photo organization, and the Obsidian auto-commit. Missed checks trigger a Signal alert. Beszel records resource metrics for the host and its containers. See [operations-and-monitoring.md](operations-and-monitoring.md).
 
 ## Diagram
 
-This is the same diagram as [`diagrams/architecture_with_beszel.md`](../diagrams/architecture_with_beszel.md). Orange edges are drive mounts, green edges are backup flows, and faded red edges are Beszel's monitoring. Backblaze B2 is planned and not yet implemented.
+This is the same diagram as [`diagrams/architecture_with_beszel.md`](../diagrams/architecture_with_beszel.md). Orange edges are drive mounts, green edges are backup flows, and faded red edges are Beszel's monitoring. Both backup jobs write to the secondary SSD and to Backblaze B2.
 
 ```mermaid
 
@@ -89,7 +89,7 @@ flowchart TB
     DockerCompose["Docker Compose (Main)"]
     DockerComposeMonitor["Docker Compose (Monitoring)"]
     Tailnet["Tailscale private network 🛜"]
-    BackBlaze["Backblaze B2 [TBD] (Offsite Object-Storage Cloud Backup)"]
+    BackBlaze[("Backblaze B2 ☁️\n-----------------\nOffsite Restic repository 🔒")]
 
     %% ========= MAP ITEMS ============
 
@@ -160,7 +160,10 @@ flowchart TB
     e6@{ animation: fast}    
 
 
-    SecondarySSD -.-> BackBlaze
+    id1 e7@--> BackBlaze
+    id2 e8@--> BackBlaze
+    e7@{ animation: fast}
+    e8@{ animation: fast}
 
     %% Beszel
     Beszel -.monitors.-> Pi
@@ -172,15 +175,17 @@ flowchart TB
     linkStyle default stroke:white
     linkStyle 2 stroke-width:4px,stroke:orange
     linkStyle 3 stroke-width:4px,stroke:orange
-    linkStyle 22 stroke-width:2px,stroke:#90E4C1
-    linkStyle 21 stroke-width:2px,stroke:#90E4C1
-    linkStyle 20 stroke-width:4px,stroke:#90E4C1
-    linkStyle 19 stroke-width:4px,stroke:#90E4C1
-    linkStyle 29 stroke-width:2px,stroke:red,stroke-dasharray:3 4,opacity: 0.3
-    linkStyle 30 stroke-width:4px,stroke:red,stroke-dasharray:3 4,opacity: 0.3
+    linkStyle 24 stroke-width:4px,stroke:#90E4C1
+    linkStyle 25 stroke-width:4px,stroke:#90E4C1
+    linkStyle 26 stroke-width:4px,stroke:#90E4C1
+    linkStyle 27 stroke-width:4px,stroke:#90E4C1
+    linkStyle 28 stroke-width:4px,stroke:#90E4C1
+    linkStyle 29 stroke-width:4px,stroke:#90E4C1
+    linkStyle 30 stroke-width:2px,stroke:red,stroke-dasharray:3 4,opacity: 0.3
     linkStyle 31 stroke-width:4px,stroke:red,stroke-dasharray:3 4,opacity: 0.3
     linkStyle 32 stroke-width:4px,stroke:red,stroke-dasharray:3 4,opacity: 0.3
     linkStyle 33 stroke-width:4px,stroke:red,stroke-dasharray:3 4,opacity: 0.3
+    linkStyle 34 stroke-width:4px,stroke:red,stroke-dasharray:3 4,opacity: 0.3
 
 ```
 

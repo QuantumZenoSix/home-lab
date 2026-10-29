@@ -1,6 +1,6 @@
 # Backups and Recovery
 
-Two Restic jobs back up the Pi to an encrypted repository on the secondary SSD. This document describes what each job covers, how jobs are monitored, and how to check the repository and restore from it.
+Two Restic jobs back up the Pi to two encrypted repositories: one on the secondary SSD and one offsite in Backblaze B2. This document describes what each job covers, how jobs are monitored, and how to check the repositories and restore from them.
 
 ## Backup jobs
 
@@ -11,20 +11,26 @@ Both scripts run from root's crontab and live in [`/root/.restic/`](../filesyste
 | Script | [`restic_backup_system.sh`](../filesystem/root/.restic/restic_backup_system.sh) | [`restic_backup_data.sh`](../filesystem/root/.restic/restic_backup_data.sh) |
 | Schedule | `30 4 * * *` (04:30) | `0 6 * * *` (06:00) |
 | Source | `/` | `/media/HDD-Seagate-1TB-Primary` |
+| Destinations | Local repo, then B2 | Local repo, then B2 |
 | Snapshot `--host` tag | `system-ada-pi-server` | `data-primary` |
 | Compression | `max` | `max` |
 | Retention | `forget --keep-daily 7 --prune` | `forget --keep-daily 7 --prune` |
 
-The two jobs use different `--host` tags, so each one's retention and restores apply only to its own snapshots.
+The two jobs use different `--host` tags, so each one's retention and restores apply only to its own snapshots. Each job runs the same backup and prune against both repositories, so both apply the same retention to its snapshots.
 
 ### Encryption and credentials
 
-Restic encrypts every repository. Both scripts pass these two files:
+Restic encrypts every repository. The scripts don't pass the repository or password on the command line. Before each run they `source` environment files from `/etc/`, which set Restic's standard variables:
 
-- `--repository-file /root/.restic/restic_repo_name` holds the repository path, which is under `/media/HDD-Seagate-2TB-Backup/restic-repo`.
-- `--password-file /root/.restic/restic_pass` holds the repository password.
+| | Local repository | B2 repository |
+|---|---|---|
+| Restic settings | [`/etc/restic-env`](../filesystem/etc/restic-env) | [`/etc/restic-env-b2`](../filesystem/etc/restic-env-b2) |
+| `RESTIC_REPOSITORY` | `/media/HDD-Seagate-2TB-Backup/restic-repo` | `s3:s3.us-west-004.backblazeb2.com/<bucket>` |
+| `RESTIC_PASSWORD_FILE` | [`/etc/restic-password`](../filesystem/etc/restic-password) | [`/etc/restic-password-b2`](../filesystem/etc/restic-password-b2) |
+| Other credentials | None | `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (the B2 application key) |
+| Kuma push tokens | [`/etc/kuma-env`](../filesystem/etc/kuma-env) | [`/etc/kuma-env-b2`](../filesystem/etc/kuma-env-b2) |
 
-**Without this password the backups can't be decrypted.** Best to keep a copy somewhere other than the Pi, such as a password manager  
+The two repositories have **separate passwords**. **Without the matching password, a repository's backups can't be decrypted.** Keep a copy of both somewhere other than the Pi, such as a password manager. The B2 application key is also needed to reach the B2 repository after the Pi is lost.
 
 ### Exclusions
 
@@ -42,31 +48,33 @@ Restic encrypts every repository. Both scripts pass these two files:
 
 Each script runs these steps:
 
-1. **Data backup only:** checks that the primary drive is mounted (`mountpoint -q /media/HDD-Seagate-1TB-Primary`). If it isn't, the script exits with status 1. See [issue addressed here](https://github.com/QuantumZenoSix/home-lab/issues/9).
-2. Checks that `/media/HDD-Seagate-2TB-Backup/restic-repo` exists. If it doesn't, for example because the backup drive isn't mounted, the script exits without doing anything.
-3. Runs `restic backup`.
-4. If the backup exited with status 0, sends a push heartbeat to Uptime Kuma.
-5. Runs `restic forget --keep-daily 7 --prune`.
-6. If that exited with status 0, sends a separate prune heartbeat to Uptime Kuma.
+1. **Data backup only:** checks that the primary drive is mounted (`mountpoint -q /media/HDD-Seagate-1TB-Primary`). If it isn't, the script exits with status 1 and neither repository is touched. See [issue addressed here](https://github.com/QuantumZenoSix/home-lab/issues/9).
+2. Sources `/etc/kuma-env` and `/etc/restic-env` for the local repository.
+3. Checks that the local repository directory (`$RESTIC_REPOSITORY`) exists. If it doesn't, for example because the backup drive isn't mounted, the script skips steps 4–7 and moves on to B2.
+4. Runs `restic backup`.
+5. If the backup exited with status 0, sends a push heartbeat to Uptime Kuma.
+6. Runs `restic forget --keep-daily 7 --prune`.
+7. If that exited with status 0, sends a separate prune heartbeat to Uptime Kuma.
+8. Sources `/etc/kuma-env-b2` and `/etc/restic-env-b2`, which point Restic at the B2 repository and switch to the B2 push tokens. Then repeats steps 4–7 against B2.
 
-When a backup fails, or either drive is missing, no heartbeat is sent. Uptime Kuma then raises a Signal alert once the push monitor's interval runs out.
+There are four push heartbeats per script (backup and prune, for each repository), and each one has its own Uptime Kuma monitor. When a backup or prune fails, or the backup drive is missing, its heartbeat isn't sent. Uptime Kuma then raises a Signal alert once that monitor's interval runs out.
 
-A failed prune is reported separately: its heartbeat isn't sent, and its own Kuma monitor goes down.
+A failure in the local repository doesn't stop the B2 run, and a failed backup doesn't stop the prune that follows it.
 
 What the heartbeats do **not** tell you:
 
 - Whether the repository is consistent, or whether any of it can be restored.
 - Whether every expected file was included. The mount guard catches a missing drive, but not a drive that is mounted with missing or damaged folders.
 
-For scale, a sample data-backup run ([`restic.log`](../filesystem/root/.restic/restic.log)) processed about 76,000 files and 410 GiB in 53 minutes. It added 41 MiB, which took 14 MiB in the repository after compression.
+For scale, a sample data-backup run to the local repository processed about 76,000 files and 410 GiB in 53 minutes. It added 41 MiB, which took 14 MiB in the repository after compression.
 
 ## Working with the repository
 
-Run these as root. Setting two environment variables saves repeating the flags:
+Run these as root. Source the environment file for the repository you want to work with, the same way the backup scripts do:
 
 ```shell
-export RESTIC_REPOSITORY_FILE=/root/.restic/restic_repo_name
-export RESTIC_PASSWORD_FILE=/root/.restic/restic_pass
+source /etc/restic-env        # local repository on the secondary SSD
+# source /etc/restic-env-b2   # or the B2 repository
 
 restic snapshots                              # all snapshots
 restic snapshots --host data-primary          # data snapshots only
@@ -74,7 +82,9 @@ restic stats --host data-primary latest       # restore size of the latest data 
 restic ls latest --host system-ada-pi-server /etc   # browse files in a snapshot
 ```
 
-Don't run these while a scheduled backup is in progress (about 04:30–05:00 or 06:00–07:00). `forget --prune` and `check` need an exclusive lock and will fail if another process holds one.
+Don't run these while a scheduled backup is in progress (from 04:30 and from 06:00). **TODO:** add how long each job now takes, including the B2 run. `forget --prune` and `check` need an exclusive lock and will fail if another process holds one.
+
+Reading from B2 uses B2 download bandwidth and API calls, which Backblaze can bill for. Prefer the local repository for browsing and routine restores.
 
 _More_
 
@@ -90,7 +100,7 @@ restir -r /srv/restic-repo stats                            # Space repo would t
 
 ## Repository checks
 
-**No automated check is configured yet.** Run them by hand until one is scheduled:
+**No automated check is configured yet.** Run them by hand against each repository (after sourcing its environment file) until one is scheduled:
 
 ```shell
 restic check                              # metadata and structure, fast
@@ -192,13 +202,13 @@ restic restore latest --host system-ada-pi-server \
   --target /tmp/system-restore
 ```
 
-Then copy across what you need, such as `/etc/fstab`, the Compose directories, the crontabs in `/var/spool/cron/crontabs/`, and the SSH host keys. Restoring all of `/` over a running system isn't supported. To rebuild a whole host, see the checklist below.
+Then copy across what you need, such as `/etc/fstab`, the Restic and Kuma environment files in `/etc/` (`restic-env*`, `restic-password*`, `kuma-env*`), the Compose directories, the crontabs in `/var/spool/cron/crontabs/`, and the SSH host keys. Restoring all of `/` over a running system isn't supported. To rebuild a whole host, see the checklist below.
 
 
 
 ## Known gaps
 
-- **No offsite copy.** Losing the whole Pi, or both drives at once (theft, fire, or a power surge), loses everything. Backblaze B2 is planned.
+- **Restores from B2.** **TODO:** record when a restore from the B2 repository was last tested, ideally from a machine other than the Pi.
 
 <!--
 <br />
@@ -210,8 +220,8 @@ Each step can be tested without damaging the live system. Record the date of eac
 
 **Repository access**
 
-- [ ] The repository password works from its off-Pi copy: `restic snapshots` with a password typed by hand.
-- [ ] `restic snapshots` lists recent snapshots for both `data-primary` and `system-ada-pi-server`. The newest of each should be less than 24 hours old.
+- [ ] Both repository passwords work from their off-Pi copies: `restic snapshots` with each password typed by hand.
+- [ ] In both the local and B2 repositories, `restic snapshots` lists recent snapshots for both `data-primary` and `system-ada-pi-server`. The newest of each should be less than 24 hours old.
 - [ ] `restic check --read-data-subset=5%` reports `no errors were found`.
 
 **Data restore test**
@@ -228,7 +238,7 @@ Each step can be tested without damaging the live system. Record the date of eac
 **Rebuild on fresh hardware** (full drill; needs a spare SD card or SSD)
 
 - [ ] Flash Raspberry Pi OS and install Docker, Tailscale, restic, and uv/Phockup.
-- [ ] Mount the backup SSD and read the repository using the off-Pi password.
+- [ ] Mount the backup SSD and read the repository using the off-Pi password. If the SSD is lost too, read the B2 repository with its off-Pi password and B2 application key.
 - [ ] Restore `/etc/fstab`, `/home/ada`, `/root/.restic`, and the crontabs. Then bring up each Compose project.
 - [ ] Re-authenticate Tailscale, then confirm that Uptime Kuma and Beszel show healthy checks.
 - [ ] Record how long the rebuild took: ______

@@ -12,7 +12,7 @@ flowchart TB
     DockerCompose["Docker Compose (Main)"]
     DockerComposeMonitor["Docker Compose (Monitoring)"]
     Tailnet["Tailscale private network 🛜"]
-    BackBlaze["Backblaze B2 [TBD] (Offsite Object-Storage Cloud Backup)"]
+    BackBlaze[("Backblaze B2 ☁️\n-----------------\nOffsite Restic repository 🔒")]
     %%Uptime Kuma"]
     %%Restic["Restic encrypted repository 🔒"]
 
@@ -88,7 +88,10 @@ flowchart TB
     e6@{ animation: fast}    
 
 
-    SecondarySSD -.-> BackBlaze
+    id1 e7@--> BackBlaze
+    id2 e8@--> BackBlaze
+    e7@{ animation: fast}
+    e8@{ animation: fast}
 
     %% Beszel
     Beszel -.monitors.-> Pi
@@ -112,17 +115,19 @@ flowchart TB
     linkStyle default stroke:white
     linkStyle 2 stroke-width:4px,stroke:orange
     linkStyle 3 stroke-width:4px,stroke:orange
-    linkStyle 22 stroke-width:2px,stroke:#90E4C1
-    linkStyle 21 stroke-width:2px,stroke:#90E4C1
-    linkStyle 20 stroke-width:4px,stroke:#90E4C1
-    linkStyle 19 stroke-width:4px,stroke:#90E4C1
-    linkStyle 29 stroke-width:2px,stroke:red,stroke-dasharray:3 4,opacity: 0.3
-    linkStyle 30 stroke-width:4px,stroke:red,stroke-dasharray:3 4,opacity: 0.3
+    linkStyle 24 stroke-width:4px,stroke:#90E4C1
+    linkStyle 25 stroke-width:4px,stroke:#90E4C1
+    linkStyle 26 stroke-width:4px,stroke:#90E4C1
+    linkStyle 27 stroke-width:4px,stroke:#90E4C1
+    linkStyle 28 stroke-width:4px,stroke:#90E4C1
+    linkStyle 29 stroke-width:4px,stroke:#90E4C1
+    linkStyle 30 stroke-width:2px,stroke:red,stroke-dasharray:3 4,opacity: 0.3
     linkStyle 31 stroke-width:4px,stroke:red,stroke-dasharray:3 4,opacity: 0.3
     linkStyle 32 stroke-width:4px,stroke:red,stroke-dasharray:3 4,opacity: 0.3
     linkStyle 33 stroke-width:4px,stroke:red,stroke-dasharray:3 4,opacity: 0.3
     linkStyle 34 stroke-width:4px,stroke:red,stroke-dasharray:3 4,opacity: 0.3
     linkStyle 35 stroke-width:4px,stroke:red,stroke-dasharray:3 4,opacity: 0.3
+    linkStyle 36 stroke-width:4px,stroke:red,stroke-dasharray:3 4,opacity: 0.3
 
 
 

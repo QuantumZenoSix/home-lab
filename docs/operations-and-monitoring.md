@@ -14,7 +14,7 @@ Uptime Kuma and Beszel both run **on the Pi they monitor**. When the whole host 
 
 ## Uptime Kuma checks
 
-There are nine monitors: three Docker container checks and six push heartbeats.
+There are thirteen monitors: three Docker container checks and ten push heartbeats. Monitors 4, 5, 8, and 9 track the backups and prunes to the local repository. Monitors 10–13 track the same jobs against the Backblaze B2 repository (their push tokens are in `/etc/kuma-env-b2`).
 
 | # | Monitor | Type | Interval | Retries | Goes down when |
 |---|---|---|---|---|---|
@@ -27,6 +27,10 @@ There are nine monitors: three Docker container checks and six push heartbeats.
 | 7 | Daily Obsidian auto commit | Push | 24 h | 2, 24 h apart | No Obsidian auto-commit heartbeat within the interval and retries |
 | 8 | Daily Restic Backup Pruning (Primary SSD) | Push | 24 h | 2, 24 h apart | No data-prune heartbeat within the interval and retries |
 | 9 | Daily Restic Backup Pruning (Raspberry Pi) | Push | 24 h | 2, 24 h apart | No system-prune heartbeat within the interval and retries |
+| 10 | **TODO** (B2 system backup) | Push | **TODO** | **TODO** | No B2 system-backup heartbeat within the interval |
+| 11 | **TODO** (B2 data backup) | Push | **TODO** | **TODO** | No B2 data-backup heartbeat within the interval |
+| 12 | **TODO** (B2 system prune) | Push | **TODO** | **TODO** | No B2 system-prune heartbeat within the interval |
+| 13 | **TODO** (B2 data prune) | Push | **TODO** | **TODO** | No B2 data-prune heartbeat within the interval |
 
 Limits of the Docker container checks:
 
@@ -37,7 +41,7 @@ Limits of the Docker container checks:
 
 A script sends its heartbeat only when its main command exits with status 0. When the interval passes without a heartbeat, Kuma marks the monitor pending. It marks the monitor down, and sends a Signal alert, once the retries have also passed without a heartbeat.
 
-The durations below are estimates. They come from the heartbeat timestamps in Kuma's database between 25 and 28 October 2026, compared with each job's cron start time.
+The durations below are estimates. They come from the heartbeat timestamps in Kuma's database between 25 and 28 October 2026, compared with each job's cron start time. That was before the backup scripts added the B2 run, so they cover the local repository only. **TODO:** re-measure, and add the B2 backup and prune durations.
 
 | Job | Runs | Typical duration | Kuma interval |
 |---|---|---|---|
