@@ -88,7 +88,7 @@ These follow directly from the files under `filesystem/`:
 - **Uptime Kuma mounts the Docker socket read-write.** Docker socket access is equivalent to root on the host, so the Kuma web UI must stay off untrusted networks and use a strong password. The Beszel agent mounts the socket `:ro`, but that only stops the socket file from being replaced. It doesn't limit which Docker API calls the agent can make.
 - **Syncthing runs as root** (`user: "0:0"`) to write to the exFAT drive.
 - **The primary drive is mounted with `umask=000`**, so every local user can read and write every file on it.
-- **Secrets in this repository are placeholders.** On the Pi, `/root/.restic/restic_pass` should be readable by root only (`chmod 600`). The Uptime Kuma push tokens and the Samba password are hard-coded in scripts and Compose files on the host.
+- **Secrets in this repository are placeholders.** On the Pi, the Restic password files (`/etc/restic-password`, `/etc/restic-password-b2`), `/etc/restic-env-b2` (which holds the B2 application key), and the Kuma push-token files (`/etc/kuma-env`, `/etc/kuma-env-b2`) should be owned by root and readable by root only (`chmod 600`). New files in `/etc/` are usually world-readable (`644`) by default. The Samba password is hard-coded in the Compose file on the host.
 
 ## Verifying exposure
 
