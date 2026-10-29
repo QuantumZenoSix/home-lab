@@ -44,7 +44,6 @@ Ports in the table were confirmed with `sudo ss -tulpn` and `docker ps` on the P
 | Beszel agent | host | None (listens on a Unix socket) | n/a | Local only |
 | SSH | host service | 22/tcp | Yes | Tailnet |
 | Tailscale | host service | 41641/udp | Yes | WireGuard transport |
-| Avahi (mDNS) | host service | 5353/udp | Yes | Not needed |
 
 The `signal-api` container's Compose file is not in this repository.
 
@@ -67,7 +66,7 @@ Anywhere (v6) on tailscale0 ALLOW IN    Anywhere (v6)
 ## SSH
 
 - Public key authentication is enabled and root login is disabled.
-- **Password authentication is still enabled** (`passwordauthentication yes`). UFW keeps SSH off the LAN, but any device on the tailnet can still try a password. Set `PasswordAuthentication no` in `/etc/ssh/sshd_config` to make keys the only option.
+- **Password authentication is disabled** (`passwordauthentication no`). 
 
 ```shell
 # sudo sshd -T | grep -Ei 'passwordauthentication|permitrootlogin|pubkeyauthentication|kbdinteractive|listenaddress'
@@ -75,7 +74,7 @@ listenaddress [::]:22
 listenaddress 0.0.0.0:22
 permitrootlogin no
 pubkeyauthentication yes
-passwordauthentication yes
+passwordauthentication no
 kbdinteractiveauthentication no
 ```  
 
