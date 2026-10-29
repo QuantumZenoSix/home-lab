@@ -9,7 +9,7 @@ Both scripts run from root's crontab and live in [`/root/.restic/`](../filesyste
 | | System backup | Data backup |
 |---|---|---|
 | Script | [`restic_backup_system.sh`](../filesystem/root/.restic/restic_backup_system.sh) | [`restic_backup_data.sh`](../filesystem/root/.restic/restic_backup_data.sh) |
-| Schedule | `30 4 * * *` (04:30) | `0 6 * * *` (06:00) |
+| Schedule | `30 3 * * *` (03:30) | `0 5 * * *` (05:00) |
 | Source | `/` | `/media/HDD-Seagate-1TB-Primary` |
 | Destinations | Local repo, then B2 | Local repo, then B2 |
 | Snapshot `--host` tag | `system-ada-pi-server` | `data-primary` |
@@ -82,7 +82,7 @@ restic stats --host data-primary latest       # restore size of the latest data 
 restic ls latest --host system-ada-pi-server /etc   # browse files in a snapshot
 ```
 
-Don't run these while a scheduled backup is in progress (from 04:30 and from 06:00). **TODO:** add how long each job now takes, including the B2 run. `forget --prune` and `check` need an exclusive lock and will fail if another process holds one.
+Don't run these while a scheduled backup is in progress (from 03:30 and from 05:00). **TODO:** add how long each job now takes, including the B2 run. `forget --prune` and `check` need an exclusive lock and will fail if another process holds one.
 
 Reading from B2 uses B2 download bandwidth and API calls, which Backblaze can bill for. Prefer the local repository for browsing and routine restores.
 
