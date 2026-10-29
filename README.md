@@ -30,8 +30,6 @@ Beszel monitors system and container health via the web UI and configurable noti
 | [Architecture](docs/architecture.md) | Hardware, storage layout, services, and data flows |
 | [Networking and security](docs/networking-and-security.md) | Tailscale, UFW, SSH, service exposure, and how to verify it |
 | [Backups and recovery](docs/backups-and-recovery.md) | Restic jobs, retention, repository checks, restore procedures, and a recovery checklist |
-| [Issues resolved](docs/known-issues.md) | Fixed bugs, security/performance improvements, best-practice updates |
-| [Known issues](docs/issues-resolved.md) | Existing bugs, features to add, security-conscious redesigns |
 | [Operations and monitoring](docs/operations-and-monitoring.md) | Monitored checks, alerting, scheduled tasks, logs, and outage diagnosis |
 
 
