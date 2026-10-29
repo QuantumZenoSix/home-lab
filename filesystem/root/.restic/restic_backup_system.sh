@@ -61,9 +61,8 @@ function main(){
 
 	# Ensure local destination exists before backing up
 	if [ -d $RESTIC_REPOSITORY ]; then
-		#backup
-		#prune
-		echo
+		backup
+		prune
 	fi
 	
 

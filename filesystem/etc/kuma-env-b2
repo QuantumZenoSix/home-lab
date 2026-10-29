@@ -1,3 +1,4 @@
+# Same as /etc/kuma-env but these are used to track BackBlaze B2 backups
 export KUMA_SYSTEM_KEY=XXXXXXXXXXXXXXXXXXXX
 export KUMA_SYSTEM_PRUNE_KEY=XXXXXXXXXXXXXXXXXXXX
 export KUMA_DATA_KEY=XXXXXXXXXXXXXXXXXXXX

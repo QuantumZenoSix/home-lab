@@ -17,7 +17,7 @@ Beszel monitors system and container health via the web UI and configurable noti
 - **Containerized services:** Samba for file sharing, Jellyfin for media streaming, and Syncthing for device synchronization.
 - **Private networking:** Tailscale connects the server and personal devices without relying on direct public exposure of the services.
 - **Host security:** UFW firewall rules, SSH public-key authentication, and restricted remote administration.
-- **Encrypted backups:** Restic backs up the Raspberry Pi system and primary data drive to a repository on a separate local SSD with plans for offsite backup via Backblaze.
+- **Encrypted backups:** Restic backs up the Raspberry Pi system and primary data drive to a repository on a separate local SSD and to an offsite repository on Backblaze B2.
 - **Automated workflows:** Scheduled Obsidian Git commits and mobile photo organization.reree
 - **Monitoring and alerting:**
   - Uptime Kuma checks service availability and receives push heartbeats from scheduled jobs; Signal delivers notifications when monitored checks fail.
@@ -50,7 +50,7 @@ flowchart TB
     DockerCompose["Docker Compose (Main)"]
     DockerComposeMonitor["Docker Compose (Monitoring)"]
     Tailnet["Tailscale private network 🛜"]
-    BackBlaze["Backblaze B2 [TBD] (Offsite Object-Storage Cloud Backup)"]
+    BackBlaze[("Backblaze B2 ☁️\n-----------------\nOffsite Restic repository 🔒")]
     %%Uptime Kuma"]
     %%Restic["Restic encrypted repository 🔒"]
 
@@ -119,7 +119,10 @@ flowchart TB
     e6@{ animation: fast}    
 
 
-    SecondarySSD -.-> BackBlaze
+    id1 e7@--> BackBlaze
+    id2 e8@--> BackBlaze
+    e7@{ animation: fast}
+    e8@{ animation: fast}
 
 
 
@@ -136,17 +139,19 @@ flowchart TB
     linkStyle 2 stroke-width:4px,stroke:orange
     linkStyle 3 stroke-width:4px,stroke:orange
     linkStyle 4 stroke:white
-    linkStyle 22 stroke-width:2px,stroke:#90E4C1
-    linkStyle 21 stroke-width:2px,stroke:#90E4C1
-    linkStyle 20 stroke-width:4px,stroke:#90E4C1
-    linkStyle 19 stroke-width:4px,stroke:#90E4C1
+    linkStyle 23 stroke-width:4px,stroke:#90E4C1
+    linkStyle 24 stroke-width:4px,stroke:#90E4C1
+    linkStyle 25 stroke-width:4px,stroke:#90E4C1
+    linkStyle 26 stroke-width:4px,stroke:#90E4C1
+    linkStyle 27 stroke-width:4px,stroke:#90E4C1
+    linkStyle 28 stroke-width:4px,stroke:#90E4C1
 
 
 ```
 
 
 
-The diagram shows logical relationships rather than exact network routes or mount configuration. The secondary SSD stores the local Restic repository. Offsite backup to Backblaze B2 is a planned extension, not an implemented feature.
+The diagram shows logical relationships rather than exact network routes or mount configuration. The secondary SSD stores the local Restic repository. Each backup job also writes to a separate offsite Restic repository on Backblaze B2.
 
 For a fuller diagram showing how Beszel monitors system/container health at a high-level see [the Beszel diagram](https://github.com/QuantumZenoSix/home-lab/blob/main/diagrams/architecture_with_beszel.md).
 
@@ -170,7 +175,7 @@ For a fuller diagram showing how Beszel monitors system/container health at a hi
 The server uses two USB-attached SSDs:
 
 - **Primary SSD (1 TB):** documents, media, my Obsidian vault, and photo storage.
-- **Secondary SSD (2 TB):** the local Restic backup repository.
+- **Secondary SSD (2 TB):** the local Restic backup repository (an offsite copy goes to Backblaze B2).
 
 Filesystem mount configuration is documented under `filesystem/etc/fstab`.
 
@@ -191,12 +196,12 @@ Two scheduled Restic jobs run daily:
 | 04:30 | Raspberry Pi system backup |
 | 06:00 | Primary-drive data backup |
 
-Both jobs use the local Restic repository on the secondary SSD. The repository is encrypted, and its password is stored separately from this public documentation.
+Each job backs up to two Restic repositories in turn: the local repository on the secondary SSD, then an offsite repository in a Backblaze B2 bucket (through B2's S3-compatible API). Each repository is encrypted with its own password, and the passwords are stored separately from this public documentation. The scripts load each repository's settings from environment files in `/etc/` (`restic-env` and `restic-env-b2`).
 These jobs are scheduled using the cron service but can equally be set up with unit/timer files for a systemd service.
 
-Uptime Kuma receives a push heartbeat when a backup command completes successfully. This allows the monitoring system to alert when an expected heartbeat is missed.
+Uptime Kuma receives a push heartbeat when a backup command completes successfully. The local and B2 runs report to separate monitors, so the monitoring system can alert when either destination misses an expected heartbeat.
 
-**Current limitation:** The second SSD helps separate the backup destination from the primary data drive, but it does not protect against loss of the entire server or both drives. Offsite backup is planned via Backblaze B2. This is documented in [here](https://github.com/QuantumZenoSix/home-lab/issues/1)
+The second SSD separates the backup destination from the primary data drive, and the B2 copy covers loss of the entire server or both drives. Offsite backup was tracked in [this issue](https://github.com/QuantumZenoSix/home-lab/issues/1).
 
 _User cron table (ada)_
 ```shell
@@ -216,15 +221,15 @@ The project includes scheduled scripts for:
 
 - Committing Obsidian vault changes to local Git history.
 - Organizing mobile photo uploads into a date-based directory structure.
-- Backing up the Raspberry Pi system with Restic.
-- Backing up primary-drive data with Restic.
+- Backing up the Raspberry Pi system with Restic (local SSD and Backblaze B2).
+- Backing up primary-drive data with Restic (local SSD and Backblaze B2).
 - Reporting successful automation runs to Uptime Kuma.
 
 The user crontab schedules the Obsidian Git commit daily at 05:00 and the photo organization task every four hours. The two Restic jobs run from root's crontab at 04:30 and 06:00, respectively.
 
 ## Monitoring and notifications
 
-Uptime Kuma monitors the availability of the Samba, Jellyfin, and Syncthing services, as well as heartbeats from the two backup jobs and the photo organization workflow.
+Uptime Kuma monitors the availability of the Samba, Jellyfin, and Syncthing services, as well as heartbeats from the two backup jobs (for each destination) and the photo organization workflow.
 
 Signal notifications are configured for monitored failures.
 
@@ -241,7 +246,13 @@ For further diagnoses I use tools like [btop++](https://github.com/aristocratos/
 ```text
 filesystem/
 ├── etc/
-│   └── fstab
+│   ├── fstab
+│   ├── kuma-env
+│   ├── kuma-env-b2
+│   ├── restic-env
+│   ├── restic-env-b2
+│   ├── restic-password
+│   └── restic-password-b2
 ├── home/
 │   └── ada/
 │       ├── beszel/
@@ -258,16 +269,8 @@ filesystem/
 │           └── docker-compose.yml
 └── root/
     └── .restic/
-        ├── .env_restic_backup_data
-        ├── .env_restic_backup_data_prune
-        ├── .env_restic_backup_system
-        ├── .env_restic_backup_system_prune
         ├── restic_backup_data.sh
-        ├── restic_backup_system.sh
-        ├── restic.log
-        ├── restic_pass
-        ├── restic_repo_name
-        └── example configuration files
+        └── restic_backup_system.sh
 ```
 
 The `filesystem/` directory mirrors selected paths from the Raspberry Pi to make each configuration file's intended location clear. It is a curated reference, not really a complete system image or a drop-in deployment package.
@@ -287,7 +290,6 @@ Network exposure and Docker's interaction with host firewall rules should be rev
 
 Planned or potential improvements include:
 
-- Offsite backup of the encrypted Restic repository to Backblaze B2.
 - Regular automated repository checks and documented restore tests.
 - Independent monitoring for full-host outages.
 - Additional investigation documentation into occasional service interruptions and host unresponsiveness.
