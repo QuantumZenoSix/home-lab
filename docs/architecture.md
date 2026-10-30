@@ -41,12 +41,12 @@ Each Docker Compose project lives in its own directory under `/home/ada`.
 
 | Service | Compose project | Networking | Responsibility |
 |---|---|---|---|
-| Jellyfin | [`homelab/`](../filesystem/home/ada/homelab/docker-compose.yml) | host | Streams media from the primary drive, mounted **read-only** at `/media` |
-| Syncthing | [`homelab/`](../filesystem/home/ada/homelab/docker-compose.yml) | host | Syncs the Obsidian vault (two-way) and mobile uploads (phone → Pi) |
-| Samba | [`homelab/`](../filesystem/home/ada/homelab/docker-compose.yml) | host | SMB shares for **both** drives (`myhdd`, `myhdd-backup`) |
-| Uptime Kuma | [`uptime-kuma/`](../filesystem/home/ada/uptime-kuma/docker-compose.yml) | bridge, publishes `3001` | Service checks, push heartbeats, Signal alerts |
-| Beszel hub | [`beszel/`](../filesystem/home/ada/beszel/docker-compose.yml) | bridge, publishes `8090` | Dashboard and history for host and container metrics |
-| Beszel agent | [`beszel/`](../filesystem/home/ada/beszel/docker-compose.yml) | host | Collects host and container metrics, reports to the hub over a shared Unix socket |
+| Jellyfin | [`containers/homelab/`](../filesystem/home/ada/containers/homelab/docker-compose.yml) | host | Streams media from the primary drive, mounted **read-only** at `/media` |
+| Syncthing | [`containers/homelab/`](../filesystem/home/ada/containers/homelab/docker-compose.yml) | host | Syncs the Obsidian vault (two-way) and mobile uploads (phone → Pi) |
+| Samba | [`containers/homelab/`](../filesystem/home/ada/containers/homelab/docker-compose.yml) | host | SMB shares for **both** drives (`myhdd`, `myhdd-backup`) |
+| Uptime Kuma | [`containers/uptime-kuma/`](../filesystem/home/ada/containers/uptime-kuma/docker-compose.yml) | bridge, publishes `3001` | Service checks, push heartbeats, Signal alerts |
+| Beszel hub | [`containers/beszel/`](../filesystem/home/ada/containers/beszel/docker-compose.yml) | bridge, publishes `8090` | Dashboard and history for host and container metrics |
+| Beszel agent | [`containers/beszel/`](../filesystem/home/ada/containers/beszel/docker-compose.yml) | host | Collects host and container metrics, reports to the hub over a shared Unix socket |
 
 The three application services use `network_mode: host`. Jellyfin needs it for hardware decoding and Syncthing needs it for local discovery. In host mode (as I understand it) a container binds directly to the Pi's interfaces, so its ports have no Docker port mapping.
 

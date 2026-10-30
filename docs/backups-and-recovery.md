@@ -134,7 +134,7 @@ For the Obsidian vault, the local Git history and Syncthing's file versioning ar
 ### Whole primary drive (drive replaced)
 
 1. Format the new drive as exFAT. Put its UUID in `/etc/fstab` and mount it at `/media/HDD-Seagate-1TB-Primary`.
-2. Stop the services that write to it: `docker compose -f /home/ada/homelab/docker-compose.yml down`.
+2. Stop the services that write to it: `docker compose -f /home/ada/containers/homelab/docker-compose.yml down`.
 3. Restore. The `<snapshot>:<path>` syntax restores the drive's contents without the full path prefix. It needs a recent version of restic, so check `restic version` first:
 
    ```shell
@@ -232,7 +232,7 @@ Each step can be tested without damaging the live system. Record the date of eac
 
 **System restore test**
 
-- [ ] Restore `/etc/fstab`, `/home/ada/homelab/docker-compose.yml`, and `/root/.restic/` to a scratch directory. Diff them against the live files.
+- [ ] Restore `/etc/fstab`, `/home/ada/containers/homelab/docker-compose.yml`, and `/root/.restic/` to a scratch directory. Diff them against the live files.
 - [ ] Confirm that the restored crontabs contain all four scheduled jobs.
 
 **Rebuild on fresh hardware** (full drill; needs a spare SD card or SSD)

@@ -84,15 +84,15 @@ sudo grep CRON /var/log/syslog            # if rsyslog is installed
 docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
 
 # Per Compose project (run in the project directory)
-cd /home/ada/homelab     && docker compose ps && docker compose logs --tail 100 -f
-cd /home/ada/uptime-kuma && docker compose ps && docker compose logs --tail 100
-cd /home/ada/beszel      && docker compose ps && docker compose logs --tail 100
+cd /home/ada/containers/homelab     && docker compose ps && docker compose logs --tail 100 -f
+cd /home/ada/containers/uptime-kuma && docker compose ps && docker compose logs --tail 100
+cd /home/ada/containers/beszel      && docker compose ps && docker compose logs --tail 100
 
 # A single container
 docker logs --since 1h jellyfin
 
 # Restart one service without touching the others
-cd /home/ada/homelab && docker compose restart syncthing
+cd /home/ada/containers/homelab && docker compose restart syncthing
 ```
 
 Interactive tools used on the host: `lazydocker` and `dcv` for containers, `btop` for processes, and `dysk` for disks.

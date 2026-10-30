@@ -24,7 +24,7 @@ Have these ready. Except for the SSH key, they are all stored off the Pi:
 | B2 Restic repository password | `/etc/restic-password-b2` |
 | B2 bucket name and application key (key ID and key) | `/etc/restic-env-b2` |
 | Signal number registered with signal-cli | Uptime Kuma alerts |
-| Samba password for `ada` | `homelab/docker-compose.yml` |
+| Samba password for `ada` | `~/containers/homelab/docker-compose.yml` |
 
 ## 1. Flash Raspberry Pi OS
 
@@ -165,8 +165,8 @@ Then edit each file and fill in its real values:
 | `/etc/restic-env-b2` | Bucket name, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (the B2 key ID and key) |
 | `/etc/kuma-env`, `/etc/kuma-env-b2` | Push tokens from step 10 |
 | `~/scripts/.env_*` | Full push URLs from step 10 |
-| `~/homelab/docker-compose.yml` | Samba password |
-| `~/beszel/docker-compose.yml` | `TOKEN` and `KEY` from step 9 |
+| `~/containers/homelab/docker-compose.yml` | Samba password |
+| `~/containers/beszel/docker-compose.yml` | `TOKEN` and `KEY` from step 9 |
 
 On the live Pi, `/etc/kuma-env` and `/etc/kuma-env-b2` are `644`, and `~/scripts/.env_*` are `664`. That leaves the push tokens readable by every user, which is why the commands above use `600`.
 
@@ -195,17 +195,17 @@ restic restore latest --host system-ada-pi-server \
   --target /tmp/system-restore
 ```
 
-On a rebuild, `/etc/restic-env*` and the password files have to be written by hand first (step 7), because you need them to read the repository. Then copy the rest across from `/tmp/system-restore`. That includes the Uptime Kuma data in `/home/ada/uptime-kuma` and the Beszel data in `/home/ada/beszel/beszel_data` and `beszel_agent_data`, which bring back the monitors and history. Don't overwrite `/etc/fstab` with the restored copy: the drive UUIDs may have changed. See [backups-and-recovery.md](../docs/backups-and-recovery.md#system-configuration-files).
+On a rebuild, `/etc/restic-env*` and the password files have to be written by hand first (step 7), because you need them to read the repository. Then copy the rest across from `/tmp/system-restore`. That includes the Uptime Kuma data in `/home/ada/containers/uptime-kuma` and the Beszel data in `/home/ada/containers/beszel/beszel_data` and `beszel_agent_data`, which bring back the monitors and history. Don't overwrite `/etc/fstab` with the restored copy: the drive UUIDs may have changed. See [backups-and-recovery.md](../docs/backups-and-recovery.md#system-configuration-files).
 
 ### 9. Start the containers
 
 ```shell
-cd ~/homelab     && docker compose up -d     # Jellyfin, Syncthing, Samba
-cd ~/uptime-kuma && docker compose up -d     # Uptime Kuma on :3001
-cd ~/beszel      && docker compose up -d     # Beszel hub on :8090, plus agent
+cd ~/containers/homelab     && docker compose up -d     # Jellyfin, Syncthing, Samba
+cd ~/containers/uptime-kuma && docker compose up -d     # Uptime Kuma on :3001
+cd ~/containers/beszel      && docker compose up -d     # Beszel hub on :8090, plus agent
 ```
 
-**Beszel:** on a fresh install, start with `TOKEN` and `KEY` blank. Create the admin account at `http://ada-pi-server:8090`, then copy the universal token and public key from the hub's settings into `~/beszel/docker-compose.yml`, and run `docker compose up -d` again.
+**Beszel:** on a fresh install, start with `TOKEN` and `KEY` blank. Create the admin account at `http://ada-pi-server:8090`, then copy the universal token and public key from the hub's settings into `~/containers/beszel/docker-compose.yml`, and run `docker compose up -d` again.
 
 **signal-api:** this container (`bbernhard/signal-cli-rest-api`) runs on the live Pi with port `8080:8080`, but it was started outside Compose and its run command isn't in this repository. **TODO:** record its `docker run` command, or add a Compose file for it. You can get its current settings with:
 
@@ -219,7 +219,7 @@ docker inspect signal-api --format '{{json .HostConfig.PortBindings}} {{json .Mo
 
 ### 10. Uptime Kuma monitors and Signal
 
-Monitors and notifications are set up by hand in the Uptime Kuma web UI at `http://ada-pi-server:3001`. On a rebuild, restoring `/home/ada/uptime-kuma` (step 8) brings them back, so you can skip this step.
+Monitors and notifications are set up by hand in the Uptime Kuma web UI at `http://ada-pi-server:3001`. On a rebuild, restoring `/home/ada/containers/uptime-kuma` (step 8) brings them back, so you can skip this step.
 
 On a fresh install:
 

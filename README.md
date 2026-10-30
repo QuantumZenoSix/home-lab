@@ -256,18 +256,19 @@ filesystem/
 │   └── restic-password-b2
 ├── home/
 │   └── ada/
-│       ├── beszel/
-│       │   └── docker-compose.yml
-│       ├── homelab/
-│       │   └── docker-compose.yml
-│       ├── scripts/
-│       │   ├── .env_auto_commit_obsidian
-│       │   ├── .env_organize_mobile_photos
-│       │   ├── auto_commit_obsidian.log
-│       │   ├── auto_commit_obsidian.sh
-│       │   └── organize_mobile_photos.sh
-│       └── uptime-kuma/
-│           └── docker-compose.yml
+│       ├── containers/
+│       │   ├── beszel/
+│       │   │   └── docker-compose.yml
+│       │   ├── homelab/
+│       │   │   └── docker-compose.yml
+│       │   └── uptime-kuma/
+│       │       └── docker-compose.yml
+│       └── scripts/
+│           ├── .env_auto_commit_obsidian
+│           ├── .env_organize_mobile_photos
+│           ├── auto_commit_obsidian.log
+│           ├── auto_commit_obsidian.sh
+│           └── organize_mobile_photos.sh
 └── root/
     └── .restic/
         ├── restic_backup_data.sh
