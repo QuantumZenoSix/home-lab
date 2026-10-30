@@ -28,7 +28,10 @@ Restic encrypts every repository. The scripts don't pass the repository or passw
 | `RESTIC_REPOSITORY` | `/media/HDD-Seagate-2TB-Backup/restic-repo` | `s3:s3.us-west-004.backblazeb2.com/<bucket>` |
 | `RESTIC_PASSWORD_FILE` | [`/etc/restic-password`](../filesystem/etc/restic-password) | [`/etc/restic-password-b2`](../filesystem/etc/restic-password-b2) |
 | Other credentials | None | `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (the B2 application key) |
+| `TMPDIR` (Restic's temporary files) | `/media/HDD-Seagate-2TB-Backup/restic-tmp` if that directory exists, otherwise `/var/tmp/restic` | Same as local |
 | Kuma push tokens | [`/etc/kuma-env`](../filesystem/etc/kuma-env) | [`/etc/kuma-env-b2`](../filesystem/etc/kuma-env-b2) |
+
+On Debian trixie `/tmp` is a RAM-backed tmpfs, and Restic's temporary files had filled it. So both env files check for `/media/HDD-Seagate-2TB-Backup/restic-tmp`, which is missing when the backup drive isn't mounted. If it's there, they point `TMPDIR` at it. If it isn't, they create `/var/tmp/restic` and use that instead. That's on the SD card rather than in RAM, and the system backup already excludes `/var/tmp`. So the B2 run doesn't depend on the local drive, and it doesn't fill `/tmp` either. The env files don't create `restic-tmp` on the backup drive. It's made once during provisioning.
 
 The two repositories have **separate passwords**. **Without the matching password, a repository's backups can't be decrypted.** Keep a copy of both somewhere other than the Pi, such as a password manager. The B2 application key is also needed to reach the B2 repository after the Pi is lost.
 
@@ -49,22 +52,49 @@ The two repositories have **separate passwords**. **Without the matching passwor
 Each script runs these steps:
 
 1. **Data backup only:** checks that the primary drive is mounted (`mountpoint -q /media/HDD-Seagate-1TB-Primary`). If it isn't, the script exits with status 1 and neither repository is touched. See [issue addressed here](https://github.com/QuantumZenoSix/home-lab/issues/9).
-2. Sources `/etc/kuma-env` and `/etc/restic-env` for the local repository.
-3. Checks that the local repository directory (`$RESTIC_REPOSITORY`) exists. If it doesn't, for example because the backup drive isn't mounted, the script skips steps 4–7 and moves on to B2.
-4. Runs `restic backup`.
-5. If the backup exited with status 0, sends a push heartbeat to Uptime Kuma.
-6. Runs `restic forget --keep-daily 7 --prune`.
-7. If that exited with status 0, sends a separate prune heartbeat to Uptime Kuma.
-8. Sources `/etc/kuma-env-b2` and `/etc/restic-env-b2`, which point Restic at the B2 repository and switch to the B2 push tokens. Then repeats steps 4–7 against B2.
+2. **System backup only:** writes the current date into the restore-test file `/root/.restic/backup_testing/test_file.txt`. See [Automated restore test](#automated-restore-test).
+3. Sources `/etc/kuma-env` and `/etc/restic-env` for the local repository.
+4. Checks that the local repository directory (`$RESTIC_REPOSITORY`) exists. If it doesn't, for example because the backup drive isn't mounted, the script skips steps 5–10 and moves on to B2.
+5. **System backup only:** runs `restic unlock` to clear stale locks, for example one left behind by an interrupted run. Then runs `restic check` on the repository (structure and metadata, not pack data). The check adds `--with-cache` when `TMPDIR` is the `/var/tmp/restic` fallback. If the check passes, sends a repository-check heartbeat to Uptime Kuma. If it fails, the script skips steps 6–10 for this repository. See [Repository checks](#repository-checks).
+6. Runs `restic backup`. The data script runs `restic unlock` just before it (the system script already did in step 5).
+7. If the backup exited with status 0, sends a push heartbeat to Uptime Kuma.
+8. Runs `restic forget --keep-daily 7 --prune`.
+9. If that exited with status 0, sends a separate prune heartbeat to Uptime Kuma.
+10. **System backup only:** restores the test file from the latest system snapshot into a scratch directory and, if its checksum matches the live file, sends a restore heartbeat to Uptime Kuma.
+11. Sources `/etc/kuma-env-b2` and `/etc/restic-env-b2`, which point Restic at the B2 repository and switch to the B2 push tokens. Then repeats steps 5–10 against B2.
 
-There are four push heartbeats per script (backup and prune, for each repository), and each one has its own Uptime Kuma monitor. When a backup or prune fails, or the backup drive is missing, its heartbeat isn't sent. Uptime Kuma then raises a Signal alert once that monitor's interval runs out.
+The data script sends four push heartbeats (backup and prune, for each repository). The system script sends eight: the same four plus a repository-check heartbeat and a restore heartbeat for each repository. Each one has its own Uptime Kuma monitor. When a check, backup, prune, or restore test fails, or the backup drive is missing, its heartbeat isn't sent. Uptime Kuma then raises a Signal alert once that monitor's interval runs out. A failed check also means that repository's backup, prune, and restore heartbeats go missing, because those steps are skipped.
 
-A failure in the local repository doesn't stop the B2 run, and a failed backup doesn't stop the prune that follows it.
+A failure in the local repository, including a failed check, doesn't stop the B2 run. A failed backup doesn't stop the prune or restore test that follows it.
 
 What the heartbeats do **not** tell you:
 
-- Whether the repository is consistent, or whether any of it can be restored.
+- Whether the repository data is intact. The system script's nightly `restic check` covers structure and metadata only, and doesn't read pack data. The restore test reads back one small file from tonight's system snapshot, and the data snapshots aren't restore-tested at all.
 - Whether every expected file was included. The mount guard catches a missing drive, but not a drive that is mounted with missing or damaged folders.
+
+### Automated restore test
+
+The system script checks that it can read a file back out of each repository it has just written to ([issue #8](https://github.com/QuantumZenoSix/home-lab/issues/8)):
+
+1. Before the first backup, `setup_restore_test` creates `/root/.restic/backup_testing/` if needed and writes the current date into `test_file.txt`. The system backup includes `/root/.restic/`, so the file ends up in every system snapshot.
+2. After each repository's backup and prune, `test_restore` restores `test_file.txt` from the latest system snapshot into a scratch directory (`mktemp -d`, so under `TMPDIR`):
+
+   ```shell
+   restic restore latest:/root/.restic/backup_testing/ --host system-ada-pi-server \
+     --include test_file.txt --target "$restore_dir"
+   ```
+
+3. It compares the SHA-256 of the restored file with the live `test_file.txt`. On a match it sends a heartbeat using `KUMA_RESTORE_KEY` (from `/etc/kuma-env` for the local repository, `/etc/kuma-env-b2` for B2). On a mismatch, or when the restore fails, it prints `Restore verification FAILED` and sends nothing, so the monitor alerts when its interval runs out. Then it deletes the scratch directory.
+
+Like the backup and prune, the local restore test is skipped when the local repository directory is missing.
+
+Design choices:
+
+- **What it tests.** The point is to prove that a restore works end to end against each repository: password file, decryption, index, and the restore itself. What's in the file doesn't matter, so it's a tiny file holding a timestamp.
+- **New content every night.** Because the timestamp changes, the restored file only matches if it came from tonight's snapshot. Restic also has to store the new content, so the test reads back data that was uploaded that night, not a chunk deduplicated from the first run.
+- **Only system snapshots (`--host system-ada-pi-server`).** `latest` is limited to the system job's snapshots, so a newer `data-primary` snapshot can never be picked by mistake.
+- **A failed backup also fails the restore test.** If tonight's system backup fails, the newest system snapshot is from an earlier night, and its timestamp doesn't match. Both the backup and restore monitors alert. That's intended: the restore monitor means "tonight's snapshot can be restored".
+- **Restores into a scratch directory.** The live test file is never moved or overwritten. So even if the local restore fails, the B2 backup still includes tonight's file and the B2 test runs independently.
 
 For scale, a sample data-backup run to the local repository processed about 76,000 files and 410 GiB in 53 minutes. It added 41 MiB, which took 14 MiB in the repository after compression.
 
@@ -82,7 +112,7 @@ restic stats --host data-primary latest       # restore size of the latest data 
 restic ls latest --host system-ada-pi-server /etc   # browse files in a snapshot
 ```
 
-Don't run these while a scheduled backup is in progress (from 03:30 and from 05:00). **TODO:** add how long each job now takes, including the B2 run. `forget --prune` and `check` need an exclusive lock and will fail if another process holds one.
+Don't run these while a scheduled backup is in progress (from 03:30 and from 05:00). **TODO:** add how long each job now takes, including the B2 run. `forget --prune` and `check` need an exclusive lock and will fail if another process holds one. Each backup run starts with `restic unlock`, which (without `--remove-all`) removes only stale locks, not one held by a restic process that is still running.
 
 Reading from B2 uses B2 download bandwidth and API calls, which Backblaze can bill for. Prefer the local repository for browsing and routine restores.
 
@@ -100,10 +130,15 @@ restir -r /srv/restic-repo stats                            # Space repo would t
 
 ## Repository checks
 
-**No automated check is configured yet.** Run them by hand against each repository (after sourcing its environment file) until one is scheduled:
+Every night the system backup script runs `restic check` on each repository before it backs up to it (`repo_integrity_check`). It runs `restic unlock` first, because the check needs a lock and would otherwise fail on a stale one. The check covers the repository's structure and metadata. If it passes, the script sends a heartbeat using `KUMA_REPOCHECK_KEY` (from `/etc/kuma-env` or `/etc/kuma-env-b2`). If it fails, the script prints the exit code and skips the backup, prune, and restore test for that repository. A failed local check doesn't stop the B2 run. The data script doesn't run a check.
+
+A plain `restic check` downloads all the repository metadata into a fresh temporary cache in `TMPDIR`. The check runs that way when `TMPDIR` is `restic-tmp` on the backup drive, which has room for it. For B2, that means downloading all the metadata every night. When the env files have fallen back to `/var/tmp/restic`, the script adds `--with-cache` instead. The check then reuses root's normal Restic cache in `/root/.cache/restic`, which is on the SD card and excluded from the system backup (`**/.cache`). That keeps the SD card from holding a second full copy of the metadata, but the check then trusts the cached copies instead of a fresh download.
+
+**No check that reads pack data is configured yet.** Run those by hand against each repository (after sourcing its environment file):
 
 ```shell
-restic check                              # metadata and structure, fast
+restic check                              # metadata and structure, fast (runs nightly in the system script)
+restic check --with-cache                 # same, reusing the local cache instead of a fresh temporary one
 restic check --read-data-subset=5%        # also reads a random 5% of pack data
 restic check --read-data                  # reads everything, slow
 ```
@@ -208,7 +243,8 @@ Then copy across what you need, such as `/etc/fstab`, the Restic and Kuma enviro
 
 ## Known gaps
 
-- **Restores from B2.** **TODO:** record when a restore from the B2 repository was last tested, ideally from a machine other than the Pi.
+- **Restores from B2.** The [automated restore test](#automated-restore-test) restores one file from B2 every night, but only from the Pi. **TODO:** record when a full restore from the B2 repository was last tested, ideally from a machine other than the Pi.
+- **Data snapshots.** Only the system backup has an automated restore test. Restores from `data-primary` snapshots are tested by hand.
 
 <!--
 <br />

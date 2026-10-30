@@ -202,6 +202,8 @@ These jobs are scheduled using the cron service but can equally be set up with u
 
 Uptime Kuma receives a push heartbeat when a backup command completes successfully. The local and B2 runs report to separate monitors, so the monitoring system can alert when either destination misses an expected heartbeat.
 
+For each repository, the system backup job first runs `restic check` (structure and metadata) and skips that repository if the check fails. After the backup and prune, it runs a restore test: it rewrites a small test file before each run, restores it from that night's system snapshot, compares its checksum with the original, and sends a separate heartbeat when they match. See [Repository checks](docs/backups-and-recovery.md#repository-checks) and [Automated restore test](docs/backups-and-recovery.md#automated-restore-test).
+
 The second SSD separates the backup destination from the primary data drive, and the B2 copy covers loss of the entire server or both drives. Offsite backup was tracked in [this issue](https://github.com/QuantumZenoSix/home-lab/issues/1).
 
 _User cron table (ada)_
@@ -230,7 +232,7 @@ The user crontab schedules the Obsidian Git commit daily at 05:00 and the photo 
 
 ## Monitoring and notifications
 
-Uptime Kuma monitors the availability of the Samba, Jellyfin, and Syncthing services, as well as heartbeats from the two backup jobs (for each destination) and the photo organization workflow.
+Uptime Kuma monitors the availability of the Samba, Jellyfin, and Syncthing services, as well as heartbeats from the two backup jobs (for each destination), the system backup's repository check and restore test (for each destination), and the photo organization workflow.
 
 Signal notifications are configured for monitored failures.
 
@@ -292,7 +294,7 @@ Network exposure and Docker's interaction with host firewall rules should be rev
 
 Planned or potential improvements include:
 
-- Regular automated repository checks and documented restore tests.
+- Automated repository checks that read pack data (`restic check --read-data-subset`) and report to their own monitor, and restore tests that cover the data snapshots and more than a single test file.
 - Independent monitoring for full-host outages.
 - Additional investigation documentation into occasional service interruptions and host unresponsiveness.
 - More comprehensive deployment and recovery documentation.

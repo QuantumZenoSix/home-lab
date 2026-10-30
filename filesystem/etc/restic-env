@@ -1,2 +1,11 @@
 export RESTIC_REPOSITORY=/media/HDD-Seagate-2TB-Backup/restic-repo
 export RESTIC_PASSWORD_FILE=/etc/restic-password
+
+# /tmp is a small RAM-backed tmpfs, so put restic temp files on the backup drive (restic-tmp is missing when it's unmounted).
+# Otherwise use /var/tmp (on disk, excluded from the system backup), so the B2 run does not depend on the local drive.
+if [[ -d /media/HDD-Seagate-2TB-Backup/restic-tmp ]]; then
+	export TMPDIR=/media/HDD-Seagate-2TB-Backup/restic-tmp
+else
+	export TMPDIR=/var/tmp/restic
+	mkdir -p -m 700 "$TMPDIR"
+fi

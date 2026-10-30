@@ -52,19 +52,20 @@ function prune(){
 	 fi
 }
 
-function init_restore_test(){
+function setup_restore_test(){
 	# Make sure we have test data to restore
 	[[ ! -d /root/.restic/backup_testing ]] && mkdir -p /root/.restic/backup_testing
-	[[ ! -f /root/.restic/backup_testing/test_file.txt ]] && date > /root/.restic/backup_testing/test_file.txt
+	# New content every run, so the restore proves tonight's snapshot is readable
+	date > /root/.restic/backup_testing/test_file.txt
 }
 
 function test_restore(){
 
-	# Before overwriting let's save test file
-	mv /root/.restic/backup_testing/test_file.txt /root/.restic/backup_testing/test_file_src.txt
-	restic restore latest:/root/.restic/backup_testing/ --include test_file.txt --target /root/.restic/backup_testing/
+	# Restore into a scratch dir so the live test file stays in place for the next repo's backup
+	restore_dir=$(mktemp -d)
+	restic restore latest:/root/.restic/backup_testing/ --host "${SYSTEM_NAME_TAG}" --include test_file.txt --target "${restore_dir}"
 
-	if [[ "$(sha256sum /root/.restic/backup_testing/test_file.txt | cut -d ' ' -f 1)" == "$(sha256sum /root/.restic/backup_testing/test_file_src.txt | cut -d ' ' -f 1)" ]]; then
+	if [[ "$(sha256sum ${restore_dir}/test_file.txt | cut -d ' ' -f 1)" == "$(sha256sum /root/.restic/backup_testing/test_file.txt | cut -d ' ' -f 1)" ]]; then
 		echo "[+] Restore verification successful"
 
 		# Send kuma heartbbeat
@@ -74,12 +75,30 @@ function test_restore(){
 		echo "[+] Restore verification FAILED"
 	fi
 
+	rm -rf "${restore_dir}"
 }
 
-function main(){
+function repo_integrity_check(){
 
 
-	init_restore_test
+	echo "Starting Restic repository integrity check..."
+
+	# A plain check builds a fresh temporary metadata cache in TMPDIR. Only the backup drive has room for that,
+	# so with the /var/tmp fallback reuse /root/.cache/restic instead
+	check_opts=""
+	[[ "$TMPDIR" != /media/HDD-Seagate-2TB-Backup/restic-tmp ]] && check_opts="--with-cache"
+
+	if restic check $check_opts; then
+		echo "SUCCESS: Repository integrity check passed."
+		curl -s -o /dev/null "http://ada-pi-server:3001/api/push/${KUMA_REPOCHECK_KEY}?status=up&msg=OK&ping="
+	else
+		exit_status=$?
+		echo "ERROR: Repository integrity check failed (exit code: $exit_status)."
+		return 1
+	fi
+}
+
+function local_backup_tasks(){
 
 	# Local backup -> Load env vars
 	echo "[+] Starting Local backup"
@@ -88,23 +107,42 @@ function main(){
 
 	# Ensure local destination exists before backing up
 	if [ -d $RESTIC_REPOSITORY ]; then
+		# Remove stale locks first - check needs a lock too
+		restic unlock
+		# Skip this repo (but still run B2) if the check fails
+		repo_integrity_check || return 1
 		backup
 		prune
-        test_restore
+		test_restore
 	fi
-	
 
+}
 
-
+function cloud_backup_tasks(){
 
 	# S3 Cloud backup -> Load env vars
 	echo "[+] Starting Cloud backup"
 	source /etc/kuma-env-b2
 	source /etc/restic-env-b2	# Sets RESTIC_REPOSITORY (cloud)
+
+	# Remove stale locks first - check needs a lock too
+	restic unlock
+	repo_integrity_check || return 1
 	backup
 	prune
 	test_restore
 }
 
+function main(){
+
+
+	setup_restore_test
+	local_backup_tasks
+	cloud_backup_tasks
+
+
+}
+
 main
 
+exit 0
