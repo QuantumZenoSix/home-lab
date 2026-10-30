@@ -160,7 +160,7 @@ For a fuller diagram showing how Beszel monitors system/container health at a hi
 
 | Component | Purpose |
 |---|---|
-| [Bezsel](https://www.beszel.dev/) | System/container health monitoring | 
+| [Beszel](https://www.beszel.dev/) | System/container health monitoring | 
 | [Uptime Kuma](https://uptime.kuma.pet/) | Service monitoring and scheduled-job heartbeat monitoring | 
 | [Signal integration](https://github.com/bbernhard/signal-cli-rest-api) | Failure notifications from Uptime Kuma |
 | [Tailscale](https://tailscale.com/) | Private connectivity between trusted devices |
