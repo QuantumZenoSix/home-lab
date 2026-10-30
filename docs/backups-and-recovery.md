@@ -33,7 +33,7 @@ Restic encrypts every repository. The scripts don't pass the repository or passw
 
 On Debian trixie `/tmp` is a RAM-backed tmpfs, and Restic's temporary files had filled it. So both env files check for `/media/HDD-Seagate-2TB-Backup/restic-tmp`, which is missing when the backup drive isn't mounted. If it's there, they point `TMPDIR` at it. If it isn't, they create `/var/tmp/restic` and use that instead. That's on the SD card rather than in RAM, and the system backup already excludes `/var/tmp`. So the B2 run doesn't depend on the local drive, and it doesn't fill `/tmp` either. The env files don't create `restic-tmp` on the backup drive. It's made once during provisioning.
 
-The two repositories have **separate passwords**. **Without the matching password, a repository's backups can't be decrypted.** Keep a copy of both somewhere other than the Pi, such as a password manager. The B2 application key is also needed to reach the B2 repository after the Pi is lost.
+The two repositories have **separate passwords**. **Without the matching password, a repository's backups can't be decrypted.** Obviously we'd want to keep a copy of both somewhere other than the Pi, such as a password manager. The B2 application key is also needed to reach the B2 repository after the Pi is lost.
 
 ### Exclusions
 
