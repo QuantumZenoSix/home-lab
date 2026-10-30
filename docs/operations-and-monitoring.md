@@ -14,7 +14,7 @@ Uptime Kuma and Beszel both run **on the Pi they monitor**. When the whole host 
 
 ## Uptime Kuma checks
 
-There are thirteen monitors: three Docker container checks and ten push heartbeats. Monitors 4, 5, 8, and 9 track the backups and prunes to the local repository. Monitors 10–13 track the same jobs against the Backblaze B2 repository (their push tokens are in `/etc/kuma-env-b2`).
+There are seventeen monitors: three Docker container checks and fourteen push heartbeats. Monitors 4, 5, 8, and 9 track the backups and prunes to the local repository. Monitors 10–13 track the same jobs against the Backblaze B2 repository (their push tokens are in `/etc/kuma-env-b2`). Monitors 14 and 15 track the system script's [automated restore test](backups-and-recovery.md#automated-restore-test) against each repository (`KUMA_RESTORE_KEY`). Monitors 16 and 17 track its nightly [repository check](backups-and-recovery.md#repository-checks) against each repository (`KUMA_REPOCHECK_KEY`).
 
 | # | Monitor | Type | Interval | Retries | Goes down when |
 |---|---|---|---|---|---|
@@ -31,6 +31,10 @@ There are thirteen monitors: three Docker container checks and ten push heartbea
 | 11 | **TODO** (B2 data backup) | Push | **TODO** | **TODO** | No B2 data-backup heartbeat within the interval |
 | 12 | **TODO** (B2 system prune) | Push | **TODO** | **TODO** | No B2 system-prune heartbeat within the interval |
 | 13 | **TODO** (B2 data prune) | Push | **TODO** | **TODO** | No B2 data-prune heartbeat within the interval |
+| 14 | **TODO** (local system restore test) | Push | **TODO** | **TODO** | No local restore-test heartbeat within the interval |
+| 15 | **TODO** (B2 system restore test) | Push | **TODO** | **TODO** | No B2 restore-test heartbeat within the interval |
+| 16 | **TODO** (local repository check) | Push | **TODO** | **TODO** | No local repository-check heartbeat within the interval |
+| 17 | **TODO** (B2 repository check) | Push | **TODO** | **TODO** | No B2 repository-check heartbeat within the interval |
 
 Limits of the Docker container checks:
 
@@ -53,7 +57,7 @@ The durations below are estimates. They come from the heartbeat timestamps in Ku
 
 The photo-organization interval equals the cron period. A run that takes a few seconds longer than the previous one puts the monitor into pending before its heartbeat arrives, and the heartbeat log shows this several times a day. An interval of 4.5 h would stop the pending flips while still alerting within a few hours.
 
-A heartbeat means the script reached its success line. It doesn't confirm that every expected file was processed or that the backup can be restored. Pruning has its own monitors, because the prune heartbeat is sent separately after `forget --prune` succeeds. See [backups-and-recovery.md](backups-and-recovery.md#run-sequence-and-monitoring).
+A heartbeat means the script reached its success line. It doesn't confirm that every expected file was processed or that the whole backup can be restored. Pruning has its own monitors, because the prune heartbeat is sent separately after `forget --prune` succeeds. The restore-test monitors confirm only that one test file, rewritten every night, can be restored from that night's system snapshot. See [backups-and-recovery.md](backups-and-recovery.md#run-sequence-and-monitoring).
 
 The Obsidian script sends its heartbeat even when there is nothing to commit, so its monitor confirms that the job ran, not that a commit was made. Its output is appended to `/home/ada/scripts/auto_commit_obsidian.log`. I did it this way because sometimes there is nothing to commit and the heartbeat wouldn't run so I'd get false positives.
 

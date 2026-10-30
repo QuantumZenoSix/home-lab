@@ -178,8 +178,11 @@ Both repositories were created with a plain `restic init` (repository format ver
 
 **Fresh install:**
 
+Mount the backup drive first, and create `restic-tmp` on it. While that directory exists, the env files point `TMPDIR` at it. Otherwise they create and use `/var/tmp/restic`, which keeps Restic out of the RAM-backed `/tmp`. On a rebuild with the old backup drive, `restic-tmp` should already be there.
+
 ```shell
 sudo -i
+install -d -m 700 /media/HDD-Seagate-2TB-Backup/restic-tmp
 source /etc/restic-env    && restic init    # local, on the backup SSD
 source /etc/restic-env-b2 && restic init    # B2 bucket
 ```
@@ -232,7 +235,9 @@ On a fresh install:
    |---|---|
    | System backup and prune, local | `/etc/kuma-env`: `KUMA_SYSTEM_KEY`, `KUMA_SYSTEM_PRUNE_KEY` |
    | Data backup and prune, local | `/etc/kuma-env`: `KUMA_DATA_KEY`, `KUMA_DATA_PRUNE_KEY` |
-   | The same four for B2 | `/etc/kuma-env-b2`, with the same variable names |
+   | System restore test, local | `/etc/kuma-env`: `KUMA_RESTORE_KEY` |
+   | System repository check, local | `/etc/kuma-env`: `KUMA_REPOCHECK_KEY` |
+   | The same six for B2 | `/etc/kuma-env-b2`, with the same variable names |
    | Mobile photo organization | `~/scripts/.env_organize_mobile_photos` (full push URL) |
    | Obsidian auto-commit | `~/scripts/.env_auto_commit_obsidian` (full push URL) |
 
@@ -250,7 +255,7 @@ Use `crontab -e` as `ada`, and `sudo crontab -e` for root. These are the live en
 0  5 * * * /root/.restic/restic_backup_data.sh
 ```
 
-Before the first scheduled run, run each backup script by hand once (`sudo /root/.restic/restic_backup_system.sh`). Check that all four of its heartbeats arrive in Kuma.
+Before the first scheduled run, run each backup script by hand once (`sudo /root/.restic/restic_backup_system.sh`). Check that all eight of its heartbeats arrive in Kuma (four for the data script).
 
 ### 12. Optional tools
 

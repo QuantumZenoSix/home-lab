@@ -6,6 +6,9 @@ SOURCE_LOCATION='/media/HDD-Seagate-1TB-Primary'
 
 function backup(){
 
+    # Remove stale lock
+    restic unlock
+
 	restic \
 		--host "${SYSTEM_NAME_TAG}" \
 		--verbose=2 \
