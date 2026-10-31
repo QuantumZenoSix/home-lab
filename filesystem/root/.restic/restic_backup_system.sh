@@ -40,10 +40,18 @@ function backup(){
 function prune(){
 
 	# Prune old snapshots
-	 restic \
-		--host "${SYSTEM_NAME_TAG}" \
-		--verbose=2 \
-                forget --keep-daily 7 --prune
+    if [[ "${1}" == 'extra-retention' ]]; then
+        restic \
+            --host "${SYSTEM_NAME_TAG}" \
+            --verbose=2 \
+            forget --keep-daily 30 --keep-weekly 4 --keep-monthly 12
+    else
+        restic \
+            --host "${SYSTEM_NAME_TAG}" \
+            --verbose=2 \
+            forget --keep-daily 7 --prune
+    fi
+
 
 	 if [[ $? -eq 0 ]];then
 		 echo "[+] Finished prune - pushing notification to updatime kuma..."
@@ -129,7 +137,7 @@ function cloud_backup_tasks(){
 	restic unlock
 	repo_integrity_check || return 1
 	backup
-	prune
+	prune 'extra-retention'
 	test_restore
 }
 
