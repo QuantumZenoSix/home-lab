@@ -206,6 +206,8 @@ For each repository, the system backup job first runs `restic check` (structure 
 
 The second SSD separates the backup destination from the primary data drive, and the B2 copy covers loss of the entire server or both drives. Offsite backup was tracked in [this issue](https://github.com/QuantumZenoSix/home-lab/issues/1).
 
+Each repository has its own retention. Locally, the data job keeps 7 daily snapshots and the system job keeps 7 daily plus 6 weekly. The system job keeps more in B2: 30 daily and 12 monthly. So recent restores come quickly from the SSD, and B2 holds older recovery points. That is one reason the setup uses two independent Restic repositories instead of copying the local repository to B2 with rclone. A sync would carry corruption or deletions into the cloud copy, and restoring from a copied repository usually means downloading and rebuilding it first. See [Why two repositories instead of an rclone copy](docs/backups-and-recovery.md#why-two-repositories-instead-of-an-rclone-copy).
+
 _User cron table (ada)_
 ```shell
 0  5 * * * /home/ada/scripts/auto_commit_obsidian.sh >> ~/scripts/auto_commit_obsidian.log

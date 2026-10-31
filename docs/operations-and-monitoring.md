@@ -57,7 +57,7 @@ The durations below are estimates. They come from the heartbeat timestamps in Ku
 
 The photo-organization interval equals the cron period. A run that takes a few seconds longer than the previous one puts the monitor into pending before its heartbeat arrives, and the heartbeat log shows this several times a day. An interval of 4.5 h would stop the pending flips while still alerting within a few hours.
 
-A heartbeat means the script reached its success line. It doesn't confirm that every expected file was processed or that the whole backup can be restored. Pruning has its own monitors, because the prune heartbeat is sent separately after `forget --prune` succeeds. The restore-test monitors confirm only that one test file, rewritten every night, can be restored from that night's system snapshot. See [backups-and-recovery.md](backups-and-recovery.md#run-sequence-and-monitoring).
+A heartbeat means the script reached its success line. It doesn't confirm that every expected file was processed or that the whole backup can be restored. Pruning has its own monitors, because the prune heartbeat is sent separately after `restic forget --prune` succeeds. The restore-test monitors confirm only that one test file, rewritten every night, can be restored from that night's system snapshot. See [backups-and-recovery.md](backups-and-recovery.md#run-sequence-and-monitoring).
 
 The Obsidian script sends its heartbeat even when there is nothing to commit, so its monitor confirms that the job ran, not that a commit was made. Its output is appended to `/home/ada/scripts/auto_commit_obsidian.log`. I did it this way because sometimes there is nothing to commit and the heartbeat wouldn't run so I'd get false positives.
 

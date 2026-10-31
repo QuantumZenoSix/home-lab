@@ -44,12 +44,12 @@ function prune(){
         restic \
             --host "${SYSTEM_NAME_TAG}" \
             --verbose=2 \
-            forget --keep-daily 30 --keep-weekly 4 --keep-monthly 12
+            forget --keep-daily 30 --keep-monthly 12 --prune
     else
         restic \
             --host "${SYSTEM_NAME_TAG}" \
             --verbose=2 \
-            forget --keep-daily 7 --prune
+            forget --keep-daily 7 --keep-weekly 6 --prune
     fi
 
 

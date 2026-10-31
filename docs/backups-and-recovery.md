@@ -14,9 +14,32 @@ Both scripts run from root's crontab and live in [`/root/.restic/`](../filesyste
 | Destinations | Local repo, then B2 | Local repo, then B2 |
 | Snapshot `--host` tag | `system-ada-pi-server` | `data-primary` |
 | Compression | `max` | `max` |
-| Retention | `forget --keep-daily 7 --prune` | `forget --keep-daily 7 --prune` |
+| Retention, local repo | `forget --keep-daily 7 --keep-weekly 6 --prune` | `forget --keep-daily 7 --prune` |
+| Retention, B2 repo | `forget --keep-daily 30 --keep-monthly 12 --prune` | `forget --keep-daily 7 --prune` |
 
-The two jobs use different `--host` tags, so each one's retention and restores apply only to its own snapshots. Each job runs the same backup and prune against both repositories, so both apply the same retention to its snapshots.
+The two jobs use different `--host` tags, so each one's retention and restores apply only to its own snapshots.
+
+Each repository applies its own retention. In the local repository the system job keeps 7 daily and 6 weekly snapshots. In B2 it keeps more: 30 daily and 12 monthly. Restic keeps a snapshot if any of its rules matches it. So the local repository holds a system snapshot for each of the last 7 days and one for each of the last 6 weeks, and B2 holds one for each of the last 30 days and one for each of the last 12 months. B2 therefore covers mistakes found long after they happened, while the local repository covers the recent ones. The data job still uses `--keep-daily 7 --prune` in both repositories.
+
+### Why two repositories instead of an rclone copy
+
+Another option was to keep a single Restic repository on the secondary SSD and copy its files to B2 with rclone. Two independent Restic repositories work better:
+
+- **`rclone sync` spreads damage.** A sync makes the bucket match the local repository. If the local repository is corrupted, or someone deliberately wipes it, the next sync carries that into B2, and the offsite copy is lost too.
+- **`rclone copy` leaves obsolete files.** A copy never deletes, so pack and index files that the local prune has removed stay in the bucket. They take up storage and leave the bucket out of step with the repository it's supposed to mirror.
+- **Restores from a copied repository are slower.** If the local repository is destroyed, the usual way to restore from an rclone copy is to download all of it and rebuild the repository locally before the restore can start. A Restic repository in B2 can be restored from directly.
+
+With two repositories:
+
+1. **Local recovery.** Restore quickly from the secondary SSD without downloading anything.
+2. **Offsite recovery.** If the server, or both local drives, are lost, restore straight from the B2 repository.
+3. **Independent retention.** Each repository can keep a different number of snapshots. The system job now does this: 7 daily plus 6 weekly locally, 30 daily plus 12 monthly in B2. That gives more recovery points to choose from without filling the SSD.
+4. **Independent repository health.** Each repository is checked and maintained on its own. The system script's [repository check](#repository-checks) runs against each one, and a failure in one doesn't stop the other.
+5. **No automatic deletion propagation.** Pruning or deleting snapshots in the local repository doesn't prune the B2 repository, and the reverse is also true.
+
+Encryption doesn't suffer either. Restic encrypts data on the Pi before uploading it, so B2 only ever stores encrypted data, the same as it would with an rclone copy of the encrypted local repository. Each repository also has its own password. So the primary drive and the system both go to two repositories: one local and one offsite.
+
+The trade-off is that each job runs its backup twice, once per repository. The two repositories hold separate snapshots, taken a few minutes apart, not identical copies.
 
 ### Encryption and credentials
 
@@ -58,10 +81,10 @@ Each script runs these steps:
 5. **System backup only:** runs `restic unlock` to clear stale locks, for example one left behind by an interrupted run. Then runs `restic check` on the repository (structure and metadata, not pack data). The check adds `--with-cache` when `TMPDIR` is the `/var/tmp/restic` fallback. If the check passes, sends a repository-check heartbeat to Uptime Kuma. If it fails, the script skips steps 6–10 for this repository. See [Repository checks](#repository-checks).
 6. Runs `restic backup`. The data script runs `restic unlock` just before it (the system script already did in step 5).
 7. If the backup exited with status 0, sends a push heartbeat to Uptime Kuma.
-8. Runs `restic forget --keep-daily 7 --prune`.
+8. Runs `restic forget` with that repository's retention (see the table in [Backup jobs](#backup-jobs)). For the system job that is `--keep-daily 7 --keep-weekly 6 --prune` locally and `--keep-daily 30 --keep-monthly 12 --prune` in B2. For the data job it is `--keep-daily 7 --prune` in both.
 9. If that exited with status 0, sends a separate prune heartbeat to Uptime Kuma.
 10. **System backup only:** restores the test file from the latest system snapshot into a scratch directory and, if its checksum matches the live file, sends a restore heartbeat to Uptime Kuma.
-11. Sources `/etc/kuma-env-b2` and `/etc/restic-env-b2`, which point Restic at the B2 repository and switch to the B2 push tokens. Then repeats steps 5–10 against B2.
+11. Sources `/etc/kuma-env-b2` and `/etc/restic-env-b2`, which point Restic at the B2 repository and switch to the B2 push tokens. Then repeats steps 5–10 against B2, using B2's retention in step 8.
 
 The data script sends four push heartbeats (backup and prune, for each repository). The system script sends eight: the same four plus a repository-check heartbeat and a restore heartbeat for each repository. Each one has its own Uptime Kuma monitor. When a check, backup, prune, or restore test fails, or the backup drive is missing, its heartbeat isn't sent. Uptime Kuma then raises a Signal alert once that monitor's interval runs out. A failed check also means that repository's backup, prune, and restore heartbeats go missing, because those steps are skipped.
 
@@ -114,7 +137,7 @@ restic ls latest --host system-ada-pi-server /etc   # browse files in a snapshot
 
 Don't run these while a scheduled backup is in progress (from 03:30 and from 05:00). **TODO:** add how long each job now takes, including the B2 run. `forget --prune` and `check` need an exclusive lock and will fail if another process holds one. Each backup run starts with `restic unlock`, which (without `--remove-all`) removes only stale locks, not one held by a restic process that is still running.
 
-Reading from B2 uses B2 download bandwidth and API calls, which Backblaze can bill for. Prefer the local repository for browsing and routine restores.
+Reading from B2 uses B2 download bandwidth and API calls, which Backblaze can bill for. Prefer the local repository for browsing and routine restores. Beyond the last 7 days, the local repository keeps only one system snapshot per week, going back 6 weeks (see [retention](#backup-jobs)). Use B2 when you need a particular day from the last 30 days, or a system snapshot older than 6 weeks.
 
 _More_
 
