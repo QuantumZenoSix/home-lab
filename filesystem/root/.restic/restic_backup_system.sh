@@ -21,7 +21,7 @@ fi
 
 function backup(){
 
-	restic \
+	if restic \
 		--host "${SYSTEM_NAME_TAG}" \
 		--verbose=2 \
 		--compression=max \
@@ -42,9 +42,7 @@ function backup(){
 		--exclude="**/.node_modules" \
 		--exclude="**/.npm" \
 		--exclude="**/..Trash" \
-		backup /
-
-	if [[ $? -eq 0 ]];then
+		backup /; then
 		echo "[+] Finished backup - pushing notification to updatime kuma..."
 		curl -s -o /dev/null "http://ada-pi-server:3001/api/push/${KUMA_SYSTEM_KEY}?status=up&msg=OK&ping="
 	fi
@@ -53,25 +51,20 @@ function backup(){
 
 function prune(){
 
-	# Prune old snapshots
-    if [[ "${1}" == 'extra-retention' ]]; then
-        restic \
-            --host "${SYSTEM_NAME_TAG}" \
-            --verbose=2 \
-            forget --keep-daily 30 --keep-monthly 12 --prune
-    else
-        restic \
-            --host "${SYSTEM_NAME_TAG}" \
-            --verbose=2 \
-            forget --keep-daily 7 --keep-weekly 6 --prune
-    fi
+	# Pick the retention policy, then prune old snapshots
+	if [[ "${1}" == 'extra-retention' ]]; then
+		keep_opts=(--keep-daily 30 --keep-monthly 12)
+	else
+		keep_opts=(--keep-daily 7 --keep-weekly 6)
+	fi
 
-
-	 if [[ $? -eq 0 ]];then
-		 echo "[+] Finished prune - pushing notification to updatime kuma..."
-		 curl -s -o /dev/null "http://ada-pi-server:3001/api/push/${KUMA_SYSTEM_PRUNE_KEY}?status=up&msg=OK&ping="
-
-	 fi
+	if restic \
+		--host "${SYSTEM_NAME_TAG}" \
+		--verbose=2 \
+		forget "${keep_opts[@]}" --prune; then
+		echo "[+] Finished prune - pushing notification to updatime kuma..."
+		curl -s -o /dev/null "http://ada-pi-server:3001/api/push/${KUMA_SYSTEM_PRUNE_KEY}?status=up&msg=OK&ping="
+	fi
 }
 
 function setup_restore_test(){
@@ -87,7 +80,7 @@ function test_restore(){
 	restore_dir=$(mktemp -d)
 	restic restore latest:/root/.restic/backup_testing/ --host "${SYSTEM_NAME_TAG}" --include test_file.txt --target "${restore_dir}"
 
-	if [[ "$(sha256sum ${restore_dir}/test_file.txt | cut -d ' ' -f 1)" == "$(sha256sum /root/.restic/backup_testing/test_file.txt | cut -d ' ' -f 1)" ]]; then
+	if [[ "$(sha256sum "${restore_dir}/test_file.txt" | cut -d ' ' -f 1)" == "$(sha256sum /root/.restic/backup_testing/test_file.txt | cut -d ' ' -f 1)" ]]; then
 		echo "[+] Restore verification successful"
 
 		# Send kuma heartbbeat
@@ -128,7 +121,7 @@ function local_backup_tasks(){
 	source /etc/restic-env	# Sets RESTIC_REPOSITORY (local)
 
 	# Ensure local destination exists before backing up
-	if [ -d $RESTIC_REPOSITORY ]; then
+	if [ -d "$RESTIC_REPOSITORY" ]; then
 		# Remove stale locks first - check needs a lock too
 		restic unlock
 		# Skip this repo (but still run B2) if the check fails
