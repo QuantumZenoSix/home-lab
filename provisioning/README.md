@@ -49,12 +49,12 @@ The script:
 
 - Checks for Debian 13 trixie on arm64, and that user `ada` exists.
 - Adds the Docker and Tailscale apt repositories.
-- Installs the packages, including `restic`, `exfatprogs`, `cron`, `ufw`, and `exiftool`.
+- Installs the packages, including `restic`, `exfatprogs`, `ufw`, and `exiftool`.
 - Writes `/etc/docker/daemon.json` (container DNS: 8.8.8.8, 8.8.4.4, 1.1.1.1) if it doesn't exist, and adds `ada` to the `docker` group.
 - Installs `uv` for `ada` in `~/.local/bin`, clones Phockup to `/opt/phockup` with its own `.venv`, and links `/usr/local/bin/phockup`.
 - Creates the drive mount points, `/var/lib/restic-backup` (the system backup's restore-test file), `~/scripts`, and the three Compose project directories.
 - Makes the systemd journal persistent.
-- Enables `docker`, `tailscaled`, `ssh`, and `cron`.
+- Enables `docker`, `tailscaled`, and `ssh`.
 
 Log out and back in afterwards, so the `docker` group membership applies.
 
@@ -151,6 +151,9 @@ sudo install -m 755 -o root -g root filesystem/usr/local/sbin/restic_backup_*.sh
 install -m 755 filesystem/home/ada/scripts/*.sh ~/scripts/
 install -m 600 filesystem/home/ada/scripts/.env_* ~/scripts/
 
+# systemd service and timer units (enabled in step 11)
+sudo install -m 644 -o root -g root filesystem/etc/systemd/system/*.{service,timer} /etc/systemd/system/
+
 # Compose files
 for p in homelab uptime-kuma beszel; do
     install -m 644 filesystem/home/ada/$p/docker-compose.yml ~/$p/
@@ -170,7 +173,7 @@ Then edit each file and fill in its real values:
 
 On the live Pi, `/etc/kuma-env` and `/etc/kuma-env-b2` are `644`, and `~/scripts/.env_*` are `664`. That leaves the push tokens readable by every user, which is why the commands above use `600`.
 
-**Rebuild:** all of these files are in the system snapshot, under `/etc`, `/usr/local/sbin`, and `/home/ada`. Restoring them in step 8 gives you the real values without retyping them.
+**Rebuild:** all of these files are in the system snapshot, under `/etc` (including `/etc/systemd/system`), `/usr/local/sbin`, and `/home/ada`. Restoring them in step 8 gives you the real values without retyping them.
 
 ### 8. Restic repositories
 
@@ -243,21 +246,27 @@ On a fresh install:
    | Mobile photo organization | `~/scripts/.env_organize_mobile_photos` (full push URL) |
    | Obsidian auto-commit | `~/scripts/.env_auto_commit_obsidian` (full push URL) |
 
-### 11. Crontabs
+### 11. systemd timers
 
-Use `crontab -e` as `ada`, and `sudo crontab -e` for root. These are the live entries:
+Step 7 installed the units. Check them, then run each job once through systemd before enabling its timer:
 
 ```shell
-# ada
-0  5 * * * /home/ada/scripts/auto_commit_obsidian.sh >> ~/scripts/auto_commit_obsidian.log
-0 */4 * * * /home/ada/scripts/organize_mobile_photos.sh
+sudo systemd-analyze verify /etc/systemd/system/{restic-backup-*,auto-commit-obsidian,organize-mobile-photos}.service
+sudo systemctl daemon-reload
 
-# root
-30 3 * * * /usr/local/sbin/restic_backup_system.sh
-0  5 * * * /usr/local/sbin/restic_backup_data.sh
+sudo systemctl start restic-backup-system.service    # blocks until the job finishes
+journalctl -u restic-backup-system.service -e
 ```
 
-Before the first scheduled run, run each backup script by hand once (`sudo /usr/local/sbin/restic_backup_system.sh`). Check that all eight of its heartbeats arrive in Kuma (four for the data script).
+Check that all eight of the system script's heartbeats arrive in Kuma (four for the data script). Then enable the timers:
+
+```shell
+sudo systemctl enable --now restic-backup-system.timer restic-backup-data.timer \
+    auto-commit-obsidian.timer organize-mobile-photos.timer
+systemctl list-timers
+```
+
+**Migrating from cron:** if the Pi still has the old crontab entries, remove them (`crontab -e` as `ada`, `sudo crontab -e` for root) in the same session that you enable the timers, so no job runs twice.
 
 ### 12. Optional tools
 
@@ -281,3 +290,4 @@ These are on the live Pi but don't come from apt, so the script doesn't install 
 - [ ] `sudo -i`, `source /etc/restic-env`, then `restic snapshots` lists recent snapshots. Do the same with `/etc/restic-env-b2`.
 - [ ] `ls -l /etc/restic-* /etc/kuma-env*` shows `-rw------- root root` for every file.
 - [ ] Beszel shows the host and its containers.
+- [ ] `systemctl list-timers` shows all four timers with a next run time, and `crontab -l` / `sudo crontab -l` have no backup or automation entries.

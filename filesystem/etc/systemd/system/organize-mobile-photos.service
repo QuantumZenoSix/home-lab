@@ -1,0 +1,13 @@
+[Unit]
+Description=Copy mobile photo uploads into the date-based timeline with Phockup
+Wants=network-online.target
+After=network-online.target
+RequiresMountsFor=/media/HDD-Seagate-1TB-Primary
+
+[Service]
+Type=oneshot
+User=ada
+ExecStart=/home/ada/scripts/organize_mobile_photos.sh
+# A run takes about 35 minutes. Stop a hung one before the next 4-hourly run.
+TimeoutStartSec=3h50min
+Nice=10

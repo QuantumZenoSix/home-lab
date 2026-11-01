@@ -10,7 +10,7 @@ This document describes the hardware, storage layout, services, and data flows o
 | Hostname | `ada-pi-server` |
 | Primary user | `ada` (uid/gid 1000) |
 | Remote access | Tailscale (see [networking-and-security.md](networking-and-security.md)) |
-| Scheduling | cron (user `ada` and `root` crontabs) |
+| Scheduling | systemd timers ([`/etc/systemd/system/`](../filesystem/etc/systemd/system/)) |
 
 ## Storage
 
@@ -54,16 +54,18 @@ Uptime Kuma and the Beszel agent both mount `/var/run/docker.sock`, which lets t
 
 ## Scheduled jobs
 
-| Time | Crontab | Script | Reports to Uptime Kuma |
-|---|---|---|---|
-| Every 4 hours | `ada` | [`organize_mobile_photos.sh`](../filesystem/home/ada/scripts/organize_mobile_photos.sh) | Yes |
-| 03:30 daily | `root` | [`restic_backup_system.sh`](../filesystem/usr/local/sbin/restic_backup_system.sh) | Yes |
-| 05:00 daily | `ada` | [`auto_commit_obsidian.sh`](../filesystem/home/ada/scripts/auto_commit_obsidian.sh) | Yes |
-| 05:00 daily | `root` | [`restic_backup_data.sh`](../filesystem/usr/local/sbin/restic_backup_data.sh) | Yes |
+| Time | Timer | Runs as | Script | Reports to Uptime Kuma |
+|---|---|---|---|---|
+| Every 4 hours | [`organize-mobile-photos`](../filesystem/etc/systemd/system/organize-mobile-photos.timer) | `ada` | [`organize_mobile_photos.sh`](../filesystem/home/ada/scripts/organize_mobile_photos.sh) | Yes |
+| 03:30 daily | [`restic-backup-system`](../filesystem/etc/systemd/system/restic-backup-system.timer) | `root` | [`restic_backup_system.sh`](../filesystem/usr/local/sbin/restic_backup_system.sh) | Yes |
+| 05:00 daily | [`auto-commit-obsidian`](../filesystem/etc/systemd/system/auto-commit-obsidian.timer) | `ada` | [`auto_commit_obsidian.sh`](../filesystem/home/ada/scripts/auto_commit_obsidian.sh) | Yes |
+| 05:00 daily | [`restic-backup-data`](../filesystem/etc/systemd/system/restic-backup-data.timer) | `root` | [`restic_backup_data.sh`](../filesystem/usr/local/sbin/restic_backup_data.sh) | Yes |
+
+All four are system units in `/etc/systemd/system/`. The two `ada` jobs set `User=ada` in their `.service` file, so they don't need user units or lingering. Every timer sets `Persistent=true`, so a run missed while the Pi was off starts at the next boot.
 
 ## Data flows
 
-1. **Obsidian vault.** Laptops and the phone sync with the Pi through Syncthing, so the always-on Pi is the hub and devices never sync with each other directly. At 05:00 a cron job commits any changes in the vault to its local Git repository.
+1. **Obsidian vault.** Laptops and the phone sync with the Pi through Syncthing, so the always-on Pi is the hub and devices never sync with each other directly. At 05:00 a systemd timer commits any changes in the vault to its local Git repository.
 2. **Mobile photos.** The phone uploads one-way into `MobileUploads/`. Every four hours Phockup **copies** the new files into a date-based tree under `Photo Timelime/`. The originals stay in place.
 3. **Media.** Jellyfin reads from the primary drive (music, photo timeline, etc) and never writes to it.
 4. **File sharing.** Samba serves both drives over SMB. Both shares are writable by `ada`.

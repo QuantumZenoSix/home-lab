@@ -4,12 +4,12 @@ Two Restic jobs back up the Pi to two encrypted repositories: one on the seconda
 
 ## Backup jobs
 
-Both scripts run from root's crontab and live in [`/usr/local/sbin/`](../filesystem/usr/local/sbin/), which only root can write to.
+Both scripts run as root from systemd timers ([`restic-backup-system.timer`](../filesystem/etc/systemd/system/restic-backup-system.timer) and [`restic-backup-data.timer`](../filesystem/etc/systemd/system/restic-backup-data.timer)) and live in [`/usr/local/sbin/`](../filesystem/usr/local/sbin/), which only root can write to.
 
 | | System backup | Data backup |
 |---|---|---|
 | Script | [`restic_backup_system.sh`](../filesystem/usr/local/sbin/restic_backup_system.sh) | [`restic_backup_data.sh`](../filesystem/usr/local/sbin/restic_backup_data.sh) |
-| Schedule | `30 3 * * *` (03:30) | `0 5 * * *` (05:00) |
+| Schedule | `OnCalendar=*-*-* 03:30:00` | `OnCalendar=*-*-* 05:00:00` |
 | Source | `/` | `/media/HDD-Seagate-1TB-Primary` |
 | Destinations | Local repo, then B2 | Local repo, then B2 |
 | Snapshot `--host` tag | `system-ada-pi-server` | `data-primary` |
@@ -264,7 +264,7 @@ restic restore latest --host system-ada-pi-server \
 
 System snapshots taken before the backup scripts moved to `/usr/local/sbin` (from `/root/.restic`) still have them under `/root/.restic`. When restoring from one of those, add `--include /root/.restic`.
 
-Then copy across what you need, such as `/etc/fstab`, the Restic and Kuma environment files in `/etc/` (`restic-env*`, `restic-password*`, `kuma-env*`), the Compose directories, the crontabs in `/var/spool/cron/crontabs/`, and the SSH host keys. Restoring all of `/` over a running system isn't supported. To rebuild a whole host, see the checklist below.
+Then copy across what you need, such as `/etc/fstab`, the Restic and Kuma environment files in `/etc/` (`restic-env*`, `restic-password*`, `kuma-env*`), the Compose directories, the systemd units in `/etc/systemd/system/` (the four `*.service`/`*.timer` pairs), and the SSH host keys. Restoring all of `/` over a running system isn't supported. To rebuild a whole host, see the checklist below.
 
 
 
@@ -296,13 +296,13 @@ Each step can be tested without damaging the live system. Record the date of eac
 **System restore test**
 
 - [ ] Restore `/etc/fstab`, `/home/ada/containers/homelab/docker-compose.yml`, and `/usr/local/sbin/` to a scratch directory. Diff them against the live files.
-- [ ] Confirm that the restored crontabs contain all four scheduled jobs.
+- [ ] Confirm that the restored `/etc/systemd/system/` contains all four `.service`/`.timer` pairs.
 
 **Rebuild on fresh hardware** (full drill; needs a spare SD card or SSD)
 
 - [ ] Flash Raspberry Pi OS and install Docker, Tailscale, restic, and uv/Phockup.
 - [ ] Mount the backup SSD and read the repository using the off-Pi password. If the SSD is lost too, read the B2 repository with its off-Pi password and B2 application key.
-- [ ] Restore `/etc/fstab`, `/home/ada`, `/usr/local/sbin`, and the crontabs. Then bring up each Compose project.
+- [ ] Restore `/etc/fstab`, `/home/ada`, `/usr/local/sbin`, and the systemd units, then enable the four timers. Then bring up each Compose project.
 - [ ] Re-authenticate Tailscale, then confirm that Uptime Kuma and Beszel show healthy checks.
 - [ ] Record how long the rebuild took: ______
 

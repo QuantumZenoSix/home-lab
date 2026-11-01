@@ -5,7 +5,7 @@
 #
 # Installs packages and prepares directories. Safe to re-run.
 # Host-specific steps (Tailscale login, UFW, SSH hardening, fstab, secrets,
-# crontabs, Compose stacks) are in provisioning/README.md.
+# systemd timers, Compose stacks) are in provisioning/README.md.
 
 set -Eeuo pipefail
 
@@ -15,7 +15,7 @@ set -Eeuo pipefail
 
 LOG_PREFIX="[provision-pi]"
 
-# Non-root user that owns the Compose stacks and the user crontab
+# Non-root user that owns the Compose stacks and runs the Obsidian and photo jobs
 TARGET_USER="${TARGET_USER:-ada}"
 
 PRIMARY_MOUNT="/media/HDD-Seagate-1TB-Primary"
@@ -137,9 +137,6 @@ CORE_PACKAGES=(
     ntfs-3g
     dosfstools
     parted
-
-    # Scheduling (all backup and automation jobs run from cron)
-    cron
 
     # System utilities
     curl
@@ -296,7 +293,7 @@ else
     log "Keeping existing ${PHOCKUP_DIR}"
 fi
 
-# uv run picks up .venv in the working directory, which the cron script cds into
+# uv run picks up .venv in the working directory, which the photo script cds into
 if [[ ! -d "${PHOCKUP_DIR}/.venv" && -f "${PHOCKUP_DIR}/requirements.txt" ]]; then
     log "Creating Phockup virtual environment..."
     sudo -u "$TARGET_USER" -H sh -c "cd '${PHOCKUP_DIR}' && '${TARGET_HOME}/.local/bin/uv' venv && '${TARGET_HOME}/.local/bin/uv' pip install -r requirements.txt"
@@ -342,10 +339,6 @@ log "Enabling SSH..."
 
 systemctl enable --now ssh
 
-log "Enabling cron..."
-
-systemctl enable --now cron
-
 # Picks up the new /var/log/journal directory
 systemctl restart systemd-journald
 
@@ -383,6 +376,6 @@ echo "  3. Add the SSD mounts to /etc/fstab."
 echo "  4. Install config files and secrets from filesystem/."
 echo "  5. Initialise or connect the Restic repositories."
 echo "  6. Start the Docker Compose stacks and signal-api."
-echo "  7. Set up Uptime Kuma monitors and install the crontabs."
+echo "  7. Set up Uptime Kuma monitors and enable the systemd timers."
 echo
 echo "Log out and back in so the docker group membership for ${TARGET_USER} applies."

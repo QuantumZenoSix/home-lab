@@ -1,0 +1,15 @@
+[Unit]
+Description=Restic backup of the primary data drive (local repo, then B2)
+Documentation=https://github.com/QuantumZenoSix/home-lab/blob/main/docs/backups-and-recovery.md
+Wants=network-online.target
+After=network-online.target
+# Fail instead of snapshotting an empty mount point, which forget would
+# otherwise count as one of the 7 daily snapshots it keeps.
+RequiresMountsFor=/media/HDD-Seagate-1TB-Primary
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/restic_backup_data.sh
+TimeoutStartSec=20h
+Nice=10
+IOSchedulingClass=idle

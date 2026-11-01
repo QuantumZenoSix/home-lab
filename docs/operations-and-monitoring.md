@@ -45,7 +45,7 @@ Limits of the Docker container checks:
 
 A script sends its heartbeat only when its main command exits with status 0. When the interval passes without a heartbeat, Kuma marks the monitor pending. It marks the monitor down, and sends a Signal alert, once the retries have also passed without a heartbeat.
 
-The durations below are estimates. They come from the heartbeat timestamps in Kuma's database between 25 and 28 October 2026, compared with each job's cron start time. That was before the backup scripts added the B2 run, so they cover the local repository only. The backup durations may also have been worked out from the start times the docs used to list (04:30 and 06:00), not the actual 03:30 and 05:00, which would make them about an hour too short. **TODO:** re-measure, and add the B2 backup and prune durations.
+The durations below are estimates. They come from the heartbeat timestamps in Kuma's database between 25 and 28 October 2026, compared with each job's scheduled start time (the jobs ran from cron then). That was before the backup scripts added the B2 run, so they cover the local repository only. The backup durations may also have been worked out from the start times the docs used to list (04:30 and 06:00), not the actual 03:30 and 05:00, which would make them about an hour too short. **TODO:** re-measure, and add the B2 backup and prune durations.
 
 | Job | Runs | Typical duration | Kuma interval |
 |---|---|---|---|
@@ -55,7 +55,7 @@ The durations below are estimates. They come from the heartbeat timestamps in Ku
 | Photo organization | Every 4 hours | About 32–35 min | 4 h, 2 retries |
 | Obsidian auto-commit | Daily, 05:00 | About 2 min | 24 h, 2 retries |
 
-The photo-organization interval equals the cron period. A run that takes a few seconds longer than the previous one puts the monitor into pending before its heartbeat arrives, and the heartbeat log shows this several times a day. An interval of 4.5 h would stop the pending flips while still alerting within a few hours.
+The photo-organization interval equals the timer period. A run that takes a few seconds longer than the previous one puts the monitor into pending before its heartbeat arrives, and the heartbeat log shows this several times a day. An interval of 4.5 h would stop the pending flips while still alerting within a few hours.
 
 A heartbeat means the script reached its success line. It doesn't confirm that every expected file was processed or that the whole backup can be restored. Pruning has its own monitors, because the prune heartbeat is sent separately after `restic forget --prune` succeeds. The restore-test monitors confirm only that one test file, rewritten every night, can be restored from that night's system snapshot. See [backups-and-recovery.md](backups-and-recovery.md#run-sequence-and-monitoring).
 
@@ -63,23 +63,27 @@ The Obsidian script sends its heartbeat even when there is nothing to commit, so
 
 ## Scheduled tasks
 
-```shell
-# crontab -l   (user ada)
-0  5 * * * /home/ada/scripts/auto_commit_obsidian.sh >> ~/scripts/auto_commit_obsidian.log
-0 */4 * * * /home/ada/scripts/organize_mobile_photos.sh
+Each job is a systemd `.service` and `.timer` pair in [`/etc/systemd/system/`](../filesystem/etc/systemd/system/):
 
-# sudo crontab -l   (root)
-30 3 * * * /usr/local/sbin/restic_backup_system.sh > /var/log/restic.system.log 2>&1
-0  5 * * * /usr/local/sbin/restic_backup_data.sh > /var/log/retstic.data.log 2>&1
+| Timer | Schedule | Runs as |
+|---|---|---|
+| `restic-backup-system.timer` | Daily, 03:30 | root |
+| `restic-backup-data.timer` | Daily, 05:00 | root |
+| `auto-commit-obsidian.timer` | Daily, 05:00 | `ada` |
+| `organize-mobile-photos.timer` | Every 4 hours (00:00, 04:00, …) | `ada` |
+
+Timers set `Persistent=true`, so a run missed while the Pi was off starts at the next boot. If a job is still running when its timer fires again, systemd skips that trigger instead of starting a second copy. The Restic and photo services set `TimeoutStartSec=` so a hung run is killed before it can block the next one.
+
+Commands to check the jobs:
+
+```shell
+systemctl list-timers                                  # last and next run of every timer
+systemctl status restic-backup-data.service            # result of the last run
+journalctl -u restic-backup-system.service --since today   # script output
+sudo systemctl start organize-mobile-photos.service    # run a job now
 ```
 
-Commands to confirm that cron ran a job:
-
-```shell
-systemctl status cron
-journalctl -u cron --since today          # one line per job started
-sudo grep CRON /var/log/syslog            # if rsyslog is installed
-```
+Script output goes to the journal, except the Obsidian job, which appends to `/home/ada/scripts/auto_commit_obsidian.log` (`StandardOutput=append:`). The Restic scripts run with `--verbose=2`, which logs a line per file, so a data backup can hit journald's per-service rate limit. Look for `Suppressed N messages` in the output.
 
 ## Service status and logs
 

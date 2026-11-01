@@ -1,0 +1,12 @@
+[Unit]
+Description=Commit Obsidian vault changes to its local Git repository
+Wants=network-online.target
+After=network-online.target
+RequiresMountsFor=/media/HDD-Seagate-1TB-Primary
+
+[Service]
+Type=oneshot
+User=ada
+ExecStart=/home/ada/scripts/auto_commit_obsidian.sh
+# Keep appending to the same log file the cron job used. stderr follows stdout.
+StandardOutput=append:/home/ada/scripts/auto_commit_obsidian.log

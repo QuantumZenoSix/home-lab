@@ -31,7 +31,7 @@ Beszel monitors system and container health via the web UI and configurable noti
 | [Networking and security](docs/networking-and-security.md) | Tailscale, UFW, SSH, service exposure, and how to verify it |
 | [Backups and recovery](docs/backups-and-recovery.md) | Restic jobs, retention, repository checks, restore procedures, and a recovery checklist |
 | [Operations and monitoring](docs/operations-and-monitoring.md) | Monitored checks, alerting, scheduled tasks, logs, and outage diagnosis |
-| [Provisioning](provisioning/README.md) | Setting up or rebuilding the Pi: the provisioning script, then firewall, drives, secrets, containers, and crontabs |
+| [Provisioning](provisioning/README.md) | Setting up or rebuilding the Pi: the provisioning script, then firewall, drives, secrets, containers, and systemd timers |
 
 
 ## Architecture
@@ -198,7 +198,7 @@ Two scheduled Restic jobs run daily:
 | 05:00 | Primary-drive data backup |
 
 Each job backs up to two Restic repositories in turn: the local repository on the secondary SSD, then an offsite repository in a Backblaze B2 bucket (through B2's S3-compatible API). Each repository is encrypted with its own password, and the passwords are stored separately from this public documentation. The scripts load each repository's settings from environment files in `/etc/` (`restic-env` and `restic-env-b2`).
-These jobs are scheduled using the cron service but can equally be set up with unit/timer files for a systemd service.
+These jobs are scheduled with systemd timers. Each job is a `.service` unit that runs its script and a `.timer` unit that sets when, all in [`/etc/systemd/system/`](filesystem/etc/systemd/system/).
 
 Uptime Kuma receives a push heartbeat when a backup command completes successfully. The local and B2 runs report to separate monitors, so the monitoring system can alert when either destination misses an expected heartbeat.
 
@@ -208,17 +208,16 @@ The second SSD separates the backup destination from the primary data drive, and
 
 Each repository has its own retention. Locally, the data job keeps 7 daily snapshots and the system job keeps 7 daily plus 6 weekly. The system job keeps more in B2: 30 daily and 12 monthly. So recent restores come quickly from the SSD, and B2 holds older recovery points. That is one reason the setup uses two independent Restic repositories instead of copying the local repository to B2 with rclone. A sync would carry corruption or deletions into the cloud copy, and restoring from a copied repository usually means downloading and rebuilding it first. See [Why two repositories instead of an rclone copy](docs/backups-and-recovery.md#why-two-repositories-instead-of-an-rclone-copy).
 
-_User cron table (ada)_
-```shell
-0  5 * * * /home/ada/scripts/auto_commit_obsidian.sh >> ~/scripts/auto_commit_obsidian.log
-0 */4 * * * /home/ada/scripts/organize_mobile_photos.sh
-```
+_systemd timers_
 
-_Root cron table_
-```shell
-30 3 * * * /usr/local/sbin/restic_backup_system.sh
-0  5 * * * /usr/local/sbin/restic_backup_data.sh
-```  
+| Timer | `OnCalendar` | Runs | As |
+|---|---|---|---|
+| `restic-backup-system.timer` | `*-*-* 03:30:00` | `/usr/local/sbin/restic_backup_system.sh` | root |
+| `restic-backup-data.timer` | `*-*-* 05:00:00` | `/usr/local/sbin/restic_backup_data.sh` | root |
+| `auto-commit-obsidian.timer` | `*-*-* 05:00:00` | `/home/ada/scripts/auto_commit_obsidian.sh` | `ada` |
+| `organize-mobile-photos.timer` | `*-*-* 00/4:00:00` | `/home/ada/scripts/organize_mobile_photos.sh` | `ada` |
+
+All four timers set `Persistent=true`, so a run missed while the Pi was off starts at the next boot. The data backup, photo, and Obsidian services use `RequiresMountsFor=/media/HDD-Seagate-1TB-Primary`, so they fail instead of running against an empty mount point. The system backup doesn't require the backup drive, because the script skips the local repository when it is missing and still backs up to B2.
 
 ## Automation
 
@@ -230,7 +229,7 @@ The project includes scheduled scripts for:
 - Backing up primary-drive data with Restic (local SSD and Backblaze B2).
 - Reporting successful automation runs to Uptime Kuma.
 
-The user crontab schedules the Obsidian Git commit daily at 05:00 and the photo organization task every four hours. The two Restic jobs run from root's crontab at 03:30 and 05:00, respectively.
+systemd timers run the Obsidian Git commit daily at 05:00 and the photo organization task every four hours, both as `ada`. The two Restic jobs run as root at 03:30 and 05:00, respectively.
 
 ## Monitoring and notifications
 
@@ -257,7 +256,13 @@ filesystem/
 │   ├── restic-env
 │   ├── restic-env-b2
 │   ├── restic-password
-│   └── restic-password-b2
+│   ├── restic-password-b2
+│   └── systemd/
+│       └── system/
+│           ├── auto-commit-obsidian.{service,timer}
+│           ├── organize-mobile-photos.{service,timer}
+│           ├── restic-backup-data.{service,timer}
+│           └── restic-backup-system.{service,timer}
 ├── home/
 │   └── ada/
 │       ├── containers/
