@@ -52,7 +52,7 @@ The script:
 - Installs the packages, including `restic`, `exfatprogs`, `cron`, `ufw`, and `exiftool`.
 - Writes `/etc/docker/daemon.json` (container DNS: 8.8.8.8, 8.8.4.4, 1.1.1.1) if it doesn't exist, and adds `ada` to the `docker` group.
 - Installs `uv` for `ada` in `~/.local/bin`, clones Phockup to `/opt/phockup` with its own `.venv`, and links `/usr/local/bin/phockup`.
-- Creates the drive mount points, `/root/.restic`, `~/scripts`, and the three Compose project directories.
+- Creates the drive mount points, `/var/lib/restic-backup` (the system backup's restore-test file), `~/scripts`, and the three Compose project directories.
 - Makes the systemd journal persistent.
 - Enables `docker`, `tailscaled`, `ssh`, and `cron`.
 
@@ -145,7 +145,7 @@ for f in restic-env restic-env-b2 restic-password restic-password-b2 kuma-env ku
 done
 
 # Backup scripts
-sudo install -m 755 -o root -g root filesystem/root/.restic/restic_backup_*.sh /root/.restic/
+sudo install -m 755 -o root -g root filesystem/usr/local/sbin/restic_backup_*.sh /usr/local/sbin/
 
 # Automation scripts and their push-URL files
 install -m 755 filesystem/home/ada/scripts/*.sh ~/scripts/
@@ -170,7 +170,7 @@ Then edit each file and fill in its real values:
 
 On the live Pi, `/etc/kuma-env` and `/etc/kuma-env-b2` are `644`, and `~/scripts/.env_*` are `664`. That leaves the push tokens readable by every user, which is why the commands above use `600`.
 
-**Rebuild:** all of these files are in the system snapshot, under `/etc`, `/root/.restic`, and `/home/ada`. Restoring them in step 8 gives you the real values without retyping them.
+**Rebuild:** all of these files are in the system snapshot, under `/etc`, `/usr/local/sbin`, and `/home/ada`. Restoring them in step 8 gives you the real values without retyping them.
 
 ### 8. Restic repositories
 
@@ -194,9 +194,11 @@ sudo -i
 source /etc/restic-env      # or /etc/restic-env-b2 if the backup SSD is gone
 restic snapshots --host system-ada-pi-server --latest 1
 restic restore latest --host system-ada-pi-server \
-  --include /etc --include /home/ada --include /root/.restic \
+  --include /etc --include /home/ada --include /usr/local/sbin \
   --target /tmp/system-restore
 ```
+
+System snapshots taken before the backup scripts moved to `/usr/local/sbin` (from `/root/.restic`) still have them under `/root/.restic`. When restoring from one of those, add `--include /root/.restic`.
 
 On a rebuild, `/etc/restic-env*` and the password files have to be written by hand first (step 7), because you need them to read the repository. Then copy the rest across from `/tmp/system-restore`. That includes the Uptime Kuma data in `/home/ada/containers/uptime-kuma` and the Beszel data in `/home/ada/containers/beszel/beszel_data` and `beszel_agent_data`, which bring back the monitors and history. Don't overwrite `/etc/fstab` with the restored copy: the drive UUIDs may have changed. See [backups-and-recovery.md](../docs/backups-and-recovery.md#system-configuration-files).
 
@@ -251,11 +253,11 @@ Use `crontab -e` as `ada`, and `sudo crontab -e` for root. These are the live en
 0 */4 * * * /home/ada/scripts/organize_mobile_photos.sh
 
 # root
-30 3 * * * /root/.restic/restic_backup_system.sh
-0  5 * * * /root/.restic/restic_backup_data.sh
+30 3 * * * /usr/local/sbin/restic_backup_system.sh
+0  5 * * * /usr/local/sbin/restic_backup_data.sh
 ```
 
-Before the first scheduled run, run each backup script by hand once (`sudo /root/.restic/restic_backup_system.sh`). Check that all eight of its heartbeats arrive in Kuma (four for the data script).
+Before the first scheduled run, run each backup script by hand once (`sudo /usr/local/sbin/restic_backup_system.sh`). Check that all eight of its heartbeats arrive in Kuma (four for the data script).
 
 ### 12. Optional tools
 

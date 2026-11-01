@@ -313,8 +313,9 @@ log "Creating mount points and script directories..."
 # Mount points for the two drives (fstab entries are added by hand, see README)
 mkdir -p "$PRIMARY_MOUNT" "$BACKUP_MOUNT"
 
-# Restic backup scripts (root) and automation scripts (target user)
-install -d -m 700 -o root -g root /root/.restic
+# Restore-test data for the system backup (root; the scripts themselves go in /usr/local/sbin)
+# and the target user's automation scripts
+install -d -m 700 -o root -g root /var/lib/restic-backup
 install -d -m 775 -o "$TARGET_USER" -g "$TARGET_USER" "${TARGET_HOME}/scripts"
 
 # Compose project directories

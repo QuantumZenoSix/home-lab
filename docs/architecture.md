@@ -57,9 +57,9 @@ Uptime Kuma and the Beszel agent both mount `/var/run/docker.sock`, which lets t
 | Time | Crontab | Script | Reports to Uptime Kuma |
 |---|---|---|---|
 | Every 4 hours | `ada` | [`organize_mobile_photos.sh`](../filesystem/home/ada/scripts/organize_mobile_photos.sh) | Yes |
-| 03:30 daily | `root` | [`restic_backup_system.sh`](../filesystem/root/.restic/restic_backup_system.sh) | Yes |
+| 03:30 daily | `root` | [`restic_backup_system.sh`](../filesystem/usr/local/sbin/restic_backup_system.sh) | Yes |
 | 05:00 daily | `ada` | [`auto_commit_obsidian.sh`](../filesystem/home/ada/scripts/auto_commit_obsidian.sh) | Yes |
-| 05:00 daily | `root` | [`restic_backup_data.sh`](../filesystem/root/.restic/restic_backup_data.sh) | Yes |
+| 05:00 daily | `root` | [`restic_backup_data.sh`](../filesystem/usr/local/sbin/restic_backup_data.sh) | Yes |
 
 ## Data flows
 

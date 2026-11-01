@@ -216,8 +216,8 @@ _User cron table (ada)_
 
 _Root cron table_
 ```shell
-30 3 * * * /root/.restic/restic_backup_system.sh
-0  5 * * * /root/.restic/restic_backup_data.sh
+30 3 * * * /usr/local/sbin/restic_backup_system.sh
+0  5 * * * /usr/local/sbin/restic_backup_data.sh
 ```  
 
 ## Automation
@@ -273,10 +273,11 @@ filesystem/
 │           ├── auto_commit_obsidian.log
 │           ├── auto_commit_obsidian.sh
 │           └── organize_mobile_photos.sh
-└── root/
-    └── .restic/
-        ├── restic_backup_data.sh
-        └── restic_backup_system.sh
+└── usr/
+    └── local/
+        └── sbin/
+            ├── restic_backup_data.sh
+            └── restic_backup_system.sh
 ```
 
 The `filesystem/` directory mirrors selected paths from the Raspberry Pi to make each configuration file's intended location clear. It is a curated reference, not really a complete system image or a drop-in deployment package.

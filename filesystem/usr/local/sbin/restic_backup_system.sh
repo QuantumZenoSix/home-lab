@@ -2,6 +2,8 @@
 
 # SYSTEM BACKUP
 SYSTEM_NAME_TAG='system-ada-pi-server'
+# Restore-test data lives here, not next to the script. The system backup includes it.
+RESTORE_TEST_DIR='/var/lib/restic-backup'
 
 # No need to set a source - source is this system -> /
 
@@ -69,18 +71,18 @@ function prune(){
 
 function setup_restore_test(){
 	# Make sure we have test data to restore
-	[[ ! -d /root/.restic/backup_testing ]] && mkdir -p /root/.restic/backup_testing
+	[[ ! -d "${RESTORE_TEST_DIR}" ]] && install -d -m 700 "${RESTORE_TEST_DIR}"
 	# New content every run, so the restore proves tonight's snapshot is readable
-	date > /root/.restic/backup_testing/test_file.txt
+	date > "${RESTORE_TEST_DIR}/test_file.txt"
 }
 
 function test_restore(){
 
 	# Restore into a scratch dir so the live test file stays in place for the next repo's backup
 	restore_dir=$(mktemp -d)
-	restic restore latest:/root/.restic/backup_testing/ --host "${SYSTEM_NAME_TAG}" --include test_file.txt --target "${restore_dir}"
+	restic restore "latest:${RESTORE_TEST_DIR}/" --host "${SYSTEM_NAME_TAG}" --include test_file.txt --target "${restore_dir}"
 
-	if [[ "$(sha256sum "${restore_dir}/test_file.txt" | cut -d ' ' -f 1)" == "$(sha256sum /root/.restic/backup_testing/test_file.txt | cut -d ' ' -f 1)" ]]; then
+	if [[ "$(sha256sum "${restore_dir}/test_file.txt" | cut -d ' ' -f 1)" == "$(sha256sum "${RESTORE_TEST_DIR}/test_file.txt" | cut -d ' ' -f 1)" ]]; then
 		echo "[+] Restore verification successful"
 
 		# Send kuma heartbbeat

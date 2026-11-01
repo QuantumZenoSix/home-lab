@@ -4,11 +4,11 @@ Two Restic jobs back up the Pi to two encrypted repositories: one on the seconda
 
 ## Backup jobs
 
-Both scripts run from root's crontab and live in [`/root/.restic/`](../filesystem/root/.restic/).
+Both scripts run from root's crontab and live in [`/usr/local/sbin/`](../filesystem/usr/local/sbin/), which only root can write to.
 
 | | System backup | Data backup |
 |---|---|---|
-| Script | [`restic_backup_system.sh`](../filesystem/root/.restic/restic_backup_system.sh) | [`restic_backup_data.sh`](../filesystem/root/.restic/restic_backup_data.sh) |
+| Script | [`restic_backup_system.sh`](../filesystem/usr/local/sbin/restic_backup_system.sh) | [`restic_backup_data.sh`](../filesystem/usr/local/sbin/restic_backup_data.sh) |
 | Schedule | `30 3 * * *` (03:30) | `0 5 * * *` (05:00) |
 | Source | `/` | `/media/HDD-Seagate-1TB-Primary` |
 | Destinations | Local repo, then B2 | Local repo, then B2 |
@@ -77,7 +77,7 @@ Before anything else, each script takes a lock on `/run/lock/restic_backup.lock`
 Each script then runs these steps:
 
 1. **Data backup only:** checks that the primary drive is mounted (`mountpoint -q /media/HDD-Seagate-1TB-Primary`). If it isn't, the script exits with status 1 and neither repository is touched. See [issue addressed here](https://github.com/QuantumZenoSix/home-lab/issues/9).
-2. **System backup only:** writes the current date into the restore-test file `/root/.restic/backup_testing/test_file.txt`. See [Automated restore test](#automated-restore-test).
+2. **System backup only:** writes the current date into the restore-test file `/var/lib/restic-backup/test_file.txt`. See [Automated restore test](#automated-restore-test).
 3. Sources `/etc/kuma-env` and `/etc/restic-env` for the local repository.
 4. Checks that the local repository directory (`$RESTIC_REPOSITORY`) exists. If it doesn't, for example because the backup drive isn't mounted, the script skips steps 5–10 and moves on to B2.
 5. **System backup only:** runs `restic unlock` to clear stale locks, for example one left behind by an interrupted run. Then runs `restic check` on the repository (structure and metadata, not pack data). The check adds `--with-cache` when `TMPDIR` is the `/var/tmp/restic` fallback. If the check passes, sends a repository-check heartbeat to Uptime Kuma. If it fails, the script skips steps 6–10 for this repository. See [Repository checks](#repository-checks).
@@ -101,11 +101,11 @@ What the heartbeats do **not** tell you:
 
 The system script checks that it can read a file back out of each repository it has just written to ([issue #8](https://github.com/QuantumZenoSix/home-lab/issues/8)):
 
-1. Before the first backup, `setup_restore_test` creates `/root/.restic/backup_testing/` if needed and writes the current date into `test_file.txt`. The system backup includes `/root/.restic/`, so the file ends up in every system snapshot.
+1. Before the first backup, `setup_restore_test` creates `/var/lib/restic-backup/` (mode `700`) if needed and writes the current date into `test_file.txt`. The system backup includes `/var/lib`, so the file ends up in every system snapshot.
 2. After each repository's backup and prune, `test_restore` restores `test_file.txt` from the latest system snapshot into a scratch directory (`mktemp -d`, so under `TMPDIR`):
 
    ```shell
-   restic restore latest:/root/.restic/backup_testing/ --host system-ada-pi-server \
+   restic restore latest:/var/lib/restic-backup/ --host system-ada-pi-server \
      --include test_file.txt --target "$restore_dir"
    ```
 
@@ -258,9 +258,11 @@ Notes
 
 ```shell
 restic restore latest --host system-ada-pi-server \
-  --include /etc --include /home/ada --include /root/.restic \
+  --include /etc --include /home/ada --include /usr/local/sbin \
   --target /tmp/system-restore
 ```
+
+System snapshots taken before the backup scripts moved to `/usr/local/sbin` (from `/root/.restic`) still have them under `/root/.restic`. When restoring from one of those, add `--include /root/.restic`.
 
 Then copy across what you need, such as `/etc/fstab`, the Restic and Kuma environment files in `/etc/` (`restic-env*`, `restic-password*`, `kuma-env*`), the Compose directories, the crontabs in `/var/spool/cron/crontabs/`, and the SSH host keys. Restoring all of `/` over a running system isn't supported. To rebuild a whole host, see the checklist below.
 
@@ -293,14 +295,14 @@ Each step can be tested without damaging the live system. Record the date of eac
 
 **System restore test**
 
-- [ ] Restore `/etc/fstab`, `/home/ada/containers/homelab/docker-compose.yml`, and `/root/.restic/` to a scratch directory. Diff them against the live files.
+- [ ] Restore `/etc/fstab`, `/home/ada/containers/homelab/docker-compose.yml`, and `/usr/local/sbin/` to a scratch directory. Diff them against the live files.
 - [ ] Confirm that the restored crontabs contain all four scheduled jobs.
 
 **Rebuild on fresh hardware** (full drill; needs a spare SD card or SSD)
 
 - [ ] Flash Raspberry Pi OS and install Docker, Tailscale, restic, and uv/Phockup.
 - [ ] Mount the backup SSD and read the repository using the off-Pi password. If the SSD is lost too, read the B2 repository with its off-Pi password and B2 application key.
-- [ ] Restore `/etc/fstab`, `/home/ada`, `/root/.restic`, and the crontabs. Then bring up each Compose project.
+- [ ] Restore `/etc/fstab`, `/home/ada`, `/usr/local/sbin`, and the crontabs. Then bring up each Compose project.
 - [ ] Re-authenticate Tailscale, then confirm that Uptime Kuma and Beszel show healthy checks.
 - [ ] Record how long the rebuild took: ______
 

@@ -69,8 +69,8 @@ The Obsidian script sends its heartbeat even when there is nothing to commit, so
 0 */4 * * * /home/ada/scripts/organize_mobile_photos.sh
 
 # sudo crontab -l   (root)
-30 3 * * * /root/.restic/restic_backup_system.sh
-0  5 * * * /root/.restic/restic_backup_data.sh
+30 3 * * * /usr/local/sbin/restic_backup_system.sh
+0  5 * * * /usr/local/sbin/restic_backup_data.sh
 ```
 
 Commands to confirm that cron ran a job:
