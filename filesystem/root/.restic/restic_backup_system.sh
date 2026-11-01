@@ -3,6 +3,15 @@
 # SYSTEM BACKUP
 SYSTEM_NAME_TAG='system-ada-pi-server'
 
+# Run one backup at a time. Both backup scripts share this lock, so if the other one is still
+# running, this one waits for it (up to an hour) instead of working on the same repositories at once.
+LOCK_FILE='/run/lock/restic_backup.lock'
+exec 9>"${LOCK_FILE}"
+if ! flock -w 3600 9; then
+	echo "[!] Another backup still holds ${LOCK_FILE} after waiting 1 hour - exiting" >&2
+	exit 1
+fi
+
 # No need to set a source - source is this system -> /
 
 function backup(){

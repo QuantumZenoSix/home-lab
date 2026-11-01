@@ -72,7 +72,9 @@ The two repositories have **separate passwords**. **Without the matching passwor
 
 ### Run sequence and monitoring
 
-Each script runs these steps:
+Before anything else, each script takes a lock on `/run/lock/restic_backup.lock` with `flock`. Both scripts use the same lock file, so only one backup runs at a time, and a second copy of the same script can't start either. If the lock is held, the script waits up to an hour for it. If it still can't get the lock, it exits with status 1 without touching either repository, and the missing heartbeats raise an alert. The kernel releases the lock when the script exits, even if it crashes, so it can't go stale.
+
+Each script then runs these steps:
 
 1. **Data backup only:** checks that the primary drive is mounted (`mountpoint -q /media/HDD-Seagate-1TB-Primary`). If it isn't, the script exits with status 1 and neither repository is touched. See [issue addressed here](https://github.com/QuantumZenoSix/home-lab/issues/9).
 2. **System backup only:** writes the current date into the restore-test file `/root/.restic/backup_testing/test_file.txt`. See [Automated restore test](#automated-restore-test).
@@ -135,7 +137,7 @@ restic stats --host data-primary latest       # restore size of the latest data 
 restic ls latest --host system-ada-pi-server /etc   # browse files in a snapshot
 ```
 
-Don't run these while a scheduled backup is in progress (from 03:30 and from 05:00). **TODO:** add how long each job now takes, including the B2 run. `forget --prune` and `check` need an exclusive lock and will fail if another process holds one. Each backup run starts with `restic unlock`, which (without `--remove-all`) removes only stale locks, not one held by a restic process that is still running.
+Don't run these while a scheduled backup is in progress (from 03:30 and from 05:00). **TODO:** add how long each job now takes, including the B2 run. `forget --prune` and `check` need an exclusive lock and will fail if another process holds one. Each backup run starts with `restic unlock`, which (without `--remove-all`) removes only stale locks, not one held by a restic process that is still running. To run manual commands without colliding with a scheduled job, take the scripts' lock first: `sudo flock /run/lock/restic_backup.lock -c '<command>'` waits until no backup is running, and a scheduled backup that starts in the meantime waits for you.
 
 Reading from B2 uses B2 download bandwidth and API calls, which Backblaze can bill for. Prefer the local repository for browsing and routine restores. Beyond the last 7 days, the local repository keeps only one system snapshot per week, going back 6 weeks (see [retention](#backup-jobs)). Use B2 when you need a particular day from the last 30 days, or a system snapshot older than 6 weeks.
 
