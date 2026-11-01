@@ -8,5 +8,3 @@ RequiresMountsFor=/media/HDD-Seagate-1TB-Primary
 Type=oneshot
 User=ada
 ExecStart=/home/ada/scripts/auto_commit_obsidian.sh
-# Keep appending to the same log file the cron job used. stderr follows stdout.
-StandardOutput=append:/home/ada/scripts/auto_commit_obsidian.log

@@ -275,7 +275,6 @@ filesystem/
 │       └── scripts/
 │           ├── .env_auto_commit_obsidian
 │           ├── .env_organize_mobile_photos
-│           ├── auto_commit_obsidian.log
 │           ├── auto_commit_obsidian.sh
 │           └── organize_mobile_photos.sh
 └── usr/

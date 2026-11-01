@@ -59,7 +59,7 @@ The photo-organization interval equals the timer period. A run that takes a few 
 
 A heartbeat means the script reached its success line. It doesn't confirm that every expected file was processed or that the whole backup can be restored. Pruning has its own monitors, because the prune heartbeat is sent separately after `restic forget --prune` succeeds. The restore-test monitors confirm only that one test file, rewritten every night, can be restored from that night's system snapshot. See [backups-and-recovery.md](backups-and-recovery.md#run-sequence-and-monitoring).
 
-The Obsidian script sends its heartbeat even when there is nothing to commit, so its monitor confirms that the job ran, not that a commit was made. Its output is appended to `/home/ada/scripts/auto_commit_obsidian.log`. I did it this way because sometimes there is nothing to commit and the heartbeat wouldn't run so I'd get false positives.
+The Obsidian script sends its heartbeat even when there is nothing to commit, so its monitor confirms that the job ran, not that a commit was made. Its output goes to the journal (`journalctl -u auto-commit-obsidian.service`). I did it this way because sometimes there is nothing to commit and the heartbeat wouldn't run so I'd get false positives.
 
 ## Scheduled tasks
 
@@ -83,7 +83,7 @@ journalctl -u restic-backup-system.service --since today   # script output
 sudo systemctl start organize-mobile-photos.service    # run a job now
 ```
 
-Script output goes to the journal, except the Obsidian job, which appends to `/home/ada/scripts/auto_commit_obsidian.log` (`StandardOutput=append:`). The Restic scripts run with `--verbose=2`, which logs a line per file, so a data backup can hit journald's per-service rate limit. Look for `Suppressed N messages` in the output.
+Script output from every job goes to the journal. The Restic scripts run with `--verbose=2`, which logs a line per file, so a data backup can hit journald's per-service rate limit. Look for `Suppressed N messages` in the output.
 
 ## Service status and logs
 
