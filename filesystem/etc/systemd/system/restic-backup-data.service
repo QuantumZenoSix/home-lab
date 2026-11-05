@@ -10,6 +10,7 @@ RequiresMountsFor=/media/HDD-Seagate-1TB-Primary
 [Service]
 Type=oneshot
 ExecStart=/usr/local/sbin/restic_backup_data.sh
-TimeoutStartSec=20h
+# TimeoutStartSec=20h            <-- Causes servive timeouts on long backups
+TimeoutStartSec=infinity
 Nice=10
 IOSchedulingClass=idle
