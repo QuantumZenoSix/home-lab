@@ -1,0 +1,41 @@
+# site.yml: the main playbook. ("site" is the usual name for "set up everything".)
+#
+# A playbook is a list of plays. A play links a set of hosts to the work to do on them.
+# This playbook has one play, which applies five roles to every host in the "homelab" group.
+#
+# Run it from the ansible/ directory:
+#   ansible-playbook site.yml --ask-vault-pass --check --diff   # dry run: show what would change
+#   ansible-playbook site.yml --ask-vault-pass                  # apply
+#   ansible-playbook site.yml --ask-vault-pass --tags restic    # run only the restic role
+#
+# Running it twice in a row should report "changed=0" the second time. That property is
+# called idempotence, and it's what makes it safe to re-run against a Pi that's already set up.
+
+- name: Provision the home lab server
+  hosts: homelab
+
+  # Run tasks with sudo. Individual tasks can still switch to another user with
+  # `become_user:` (the phockup role does this to run uv as ada).
+  become: true
+
+  # Roles run in this order, top to bottom. base comes first because the others need
+  # its packages. Each role has a tag of the same name, so --tags/--skip-tags can pick roles.
+  roles:
+    - role: base
+      tags: base
+    - role: docker
+      tags: docker
+    - role: tailscale
+      tags: tailscale
+    - role: phockup
+      tags: phockup
+    - role: restic
+      tags: restic
+
+  # post_tasks run after all the roles, which is the right time for cleanup.
+  post_tasks:
+    - name: Remove packages nothing depends on any more, and clear apt's download cache
+      ansible.builtin.apt:
+        autoremove: true
+        clean: true
+      tags: cleanup

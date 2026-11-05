@@ -1,0 +1,17 @@
+# Managed by Ansible from ansible/roles/restic/templates/restic-env.j2. Edit that file, not this one.
+# Restic settings for the {{ item.name }} repository. The backup scripts `source` this file.
+export RESTIC_REPOSITORY="{{ item.repository }}"
+export RESTIC_PASSWORD_FILE={{ item.password_file }}
+{% if restic_secrets[item.name].aws_access_key_id is defined %}
+export AWS_ACCESS_KEY_ID={{ restic_secrets[item.name].aws_access_key_id }}
+export AWS_SECRET_ACCESS_KEY={{ restic_secrets[item.name].aws_secret_access_key }}
+{% endif %}
+
+# /tmp is a small RAM-backed tmpfs, so put restic temp files on the backup drive (restic-tmp is missing when it's unmounted).
+# Otherwise use /var/tmp (on disk, excluded from the system backup), so the B2 run does not depend on the local drive.
+if [[ -d {{ restic_tmp_dir }} ]]; then
+	export TMPDIR={{ restic_tmp_dir }}
+else
+	export TMPDIR={{ restic_tmp_fallback }}
+	mkdir -p -m 700 "$TMPDIR"
+fi

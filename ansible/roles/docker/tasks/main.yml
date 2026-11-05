@@ -1,0 +1,71 @@
+# Tasks for the docker role: Docker's apt repository, Docker Engine with the Compose
+# plugin, the daemon config, and docker group membership for the home lab user.
+
+# provisioning.sh wrote the repository in apt's older one-line format (docker.list) with
+# a dearmored key (docker.gpg). The next task writes the newer deb822 format
+# (docker.sources) with the key at docker.asc. If both existed, apt would refuse to run,
+# because the same repository would have two different Signed-By keys. So remove the
+# old pair first. On a fresh Pi these files don't exist and the task reports "ok".
+#
+# `loop` runs the task once per list item; inside the task, the current item is {{ item }}.
+- name: Remove the old-format Docker repository files written by provisioning.sh
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/apt/sources.list.d/docker.list
+    - /etc/apt/keyrings/docker.gpg
+
+# deb822_repository writes /etc/apt/sources.list.d/docker.sources. Because signed_by is a
+# URL, it also downloads Docker's signing key to /etc/apt/keyrings/docker.asc.
+# install_python_debian lets the module install the python3-debian library it needs.
+#
+# `register` stores the result, so the install task can check whether the repository changed.
+- name: Add Docker's apt repository
+  ansible.builtin.deb822_repository:
+    name: docker
+    types: deb
+    uris: https://download.docker.com/linux/debian
+    suites: "{{ ansible_facts['distribution_release'] }}"
+    components: stable
+    signed_by: https://download.docker.com/linux/debian/gpg
+    install_python_debian: true
+  register: docker_repo
+
+# A new repository means apt's package list is out of date, so this refreshes it first, but
+# only when the repository task above reported "changed". (`is changed` is a Jinja test.)
+# Otherwise apt could look for docker-ce in a package list that doesn't include it yet.
+- name: Install Docker Engine and the Compose plugin
+  ansible.builtin.apt:
+    name: "{{ docker_packages }}"
+    state: present
+    update_cache: "{{ docker_repo is changed }}"
+
+# template renders a Jinja2 file from templates/ and copies the result to the Pi. If the
+# result matches what's already there, nothing happens. Otherwise it replaces the file and
+# notifies the handler, which restarts Docker so the new settings apply.
+#
+# provisioning.sh only wrote this file if it was missing. Ansible always enforces it, so a
+# hand edit on the Pi will be reverted. Make the change in docker_dns instead.
+- name: Configure the Docker daemon
+  ansible.builtin.template:
+    src: daemon.json.j2
+    dest: /etc/docker/daemon.json
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart Docker
+
+# append: true ADDS the group. Without it, Ansible would make docker the user's ONLY
+# supplementary group and take away sudo. Watch out for this one.
+- name: Let the home lab user run docker without sudo
+  ansible.builtin.user:
+    name: "{{ homelab_user }}"
+    groups: docker
+    append: true
+
+- name: Enable and start Docker
+  ansible.builtin.systemd_service:
+    name: docker
+    enabled: true
+    state: started

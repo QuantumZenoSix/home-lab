@@ -1,0 +1,9 @@
+# Managed by Ansible from ansible/roles/restic/templates/kuma-env.j2. Edit that file, not this one.
+# Uptime Kuma push tokens for jobs that use the {{ item.name }} repository.
+{% set tokens = restic_secrets[item.name].kuma_tokens %}
+export KUMA_SYSTEM_KEY={{ tokens.system }}
+export KUMA_SYSTEM_PRUNE_KEY={{ tokens.system_prune }}
+export KUMA_DATA_KEY={{ tokens.data }}
+export KUMA_DATA_PRUNE_KEY={{ tokens.data_prune }}
+export KUMA_RESTORE_KEY={{ tokens.restore }}
+export KUMA_REPOCHECK_KEY={{ tokens.repocheck }}

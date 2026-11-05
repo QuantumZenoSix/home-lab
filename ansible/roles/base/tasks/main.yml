@@ -1,0 +1,116 @@
+# Tasks for the base role: OS checks, packages, and system settings every host needs.
+#
+# Every task has the same shape:
+#   - name: what this task makes true (shown in the output, so write it as a statement)
+#     <module name>:           # the tool that does the work, e.g. ansible.builtin.apt
+#       <module arguments>     # the state you want, NOT the commands to get there
+#     <task keywords>          # optional: when, loop, register, notify, become_user, ...
+#
+# Modules are idempotent: each one checks the current state first and only acts if it
+# differs from what you asked for. That's why the output shows "ok" (already right) or
+# "changed" (had to fix it) for each task.
+#
+# Module names are written in full ("ansible.builtin.apt", not just "apt"). This is
+# called the FQCN, the fully qualified collection name, and it shows which collection
+# provides the module. Everything in this role comes with ansible-core itself.
+
+# --------------------------------------------------
+# Preflight checks
+# --------------------------------------------------
+
+# Before any task runs, Ansible "gathers facts": it collects information about the Pi
+# (OS, CPU architecture, mounts, IP addresses, ...) into the ansible_facts variable.
+# To see them all: ansible ada-pi-server -m ansible.builtin.setup
+- name: Check this is Debian 13 trixie on 64-bit ARM
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['os_family'] == 'Debian'
+      - ansible_facts['distribution_release'] == base_expected_release
+      - ansible_facts['architecture'] == base_expected_architecture
+    fail_msg: >-
+      Expected Debian {{ base_expected_release }} on {{ base_expected_architecture }},
+      found {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_release'] }}
+      on {{ ansible_facts['architecture'] }}.
+    quiet: true
+
+# getent looks the user up in /etc/passwd. If the user doesn't exist, the task fails,
+# and so does the play for this host. Raspberry Pi Imager creates the user when you flash the card.
+- name: Check that the home lab user exists
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ homelab_user }}"
+
+# --------------------------------------------------
+# Packages
+# --------------------------------------------------
+
+# `name` takes a whole list, so apt installs everything in one transaction, which is much
+# faster than one task per package. `state: present` means "install if missing, but don't
+# upgrade" (`state: latest` would upgrade on every run).
+#
+# update_cache runs `apt-get update` first, but cache_valid_time skips that if it already
+# ran in the last hour (3600 s). That keeps repeated runs fast.
+- name: Install core packages
+  ansible.builtin.apt:
+    name: "{{ base_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+# Ansible's apt module has no "install if available" option, so this does what
+# install_available() did in provisioning.sh: ask apt which packages it can install.
+#
+# - `shell` runs a shell command. Use it only when no module does the job, because Ansible
+#   can't tell whether a command changed anything; you have to say so yourself.
+# - `register` saves the result (stdout, stderr, return code, ...) in a variable for later tasks.
+# - `changed_when: false` marks the task as read-only, so it always reports "ok".
+# - `check_mode: false` runs it even during --check. That's safe here because it only reads,
+#   and the next task needs its output.
+# - `set -o pipefail` makes a pipe fail when any command in it fails, not just the last one.
+#   It's a bash option, hence `executable: /bin/bash` (Ansible's shell defaults to /bin/sh).
+- name: Find which optional packages this release provides
+  ansible.builtin.shell: |
+    set -o pipefail
+    for package in {{ base_optional_packages | join(' ') }}; do
+      candidate="$(apt-cache policy "$package" | awk '/Candidate:/ {print $2}')"
+      if [ -n "$candidate" ] && [ "$candidate" != "(none)" ]; then
+        echo "$package"
+      fi
+    done
+  args:
+    executable: /bin/bash
+  register: base_optional_available
+  changed_when: false
+  check_mode: false
+
+# stdout_lines is the command's output split into a list, one package per line.
+- name: Install the optional packages that are available
+  ansible.builtin.apt:
+    name: "{{ base_optional_available.stdout_lines }}"
+    state: present
+  when: base_optional_available.stdout_lines | length > 0
+
+# --------------------------------------------------
+# System settings
+# --------------------------------------------------
+
+# journald keeps its logs in RAM (lost on reboot) unless this directory exists.
+# With it, a hang or crash leaves a log you can read after rebooting.
+#
+# `notify` queues a handler (see handlers/main.yml). The handler runs once, at the end of
+# the play, and only if this task reported "changed". So journald restarts the first time
+# the directory is created and never again after that.
+- name: Keep the systemd journal across reboots
+  ansible.builtin.file:
+    path: /var/log/journal
+    state: directory
+    owner: root
+    group: systemd-journal
+    mode: "2755"
+  notify: Restart journald
+
+- name: Enable and start SSH
+  ansible.builtin.systemd_service:
+    name: ssh
+    enabled: true
+    state: started

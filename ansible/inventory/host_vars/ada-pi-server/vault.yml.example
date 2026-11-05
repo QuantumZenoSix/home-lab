@@ -1,0 +1,45 @@
+# Secrets for ada-pi-server. TEMPLATE ONLY: every value below is a fake placeholder.
+#
+# Ansible doesn't load this file: in host_vars/ it only reads files ending in .yml, .yaml,
+# or .json, or with no extension, and this one ends in .example. To set up the real file:
+#
+#   cd ansible/inventory/host_vars/ada-pi-server
+#   cp vault.yml.example vault.yml      # vault.yml is listed in ansible/.gitignore
+#   $EDITOR vault.yml                   # replace every placeholder with the real value
+#   ansible-vault encrypt vault.yml     # asks you to choose a vault password
+#
+# After that:
+#   ansible-vault view vault.yml        # read it
+#   ansible-vault edit vault.yml        # change it (decrypts into your editor, then re-encrypts)
+#   ansible-playbook site.yml --ask-vault-pass
+#
+# Naming convention: every secret starts with vault_. The roles refer to these names, so
+# `grep -r vault_restic_b2_bucket` finds where a secret is used even while this file is encrypted.
+#
+# The restic role checks that none of these still holds a placeholder before it writes anything.
+
+# Restic repository passwords: /etc/restic-password and /etc/restic-password-b2
+vault_restic_local_password: "********************"
+vault_restic_b2_password: "********************"
+
+# Backblaze B2 bucket and application key: /etc/restic-env-b2
+vault_restic_b2_bucket: mybucketname
+vault_restic_b2_key_id: "********************"
+vault_restic_b2_application_key: "*********************"
+
+# Uptime Kuma push tokens: /etc/kuma-env (local) and /etc/kuma-env-b2 (B2).
+# Each push monitor in Kuma has its own token. See provisioning/README.md step 10.
+vault_kuma_tokens_local:
+  system: XXXXXXXXXXXXXXXXXXXX
+  system_prune: XXXXXXXXXXXXXXXXXXXX
+  data: XXXXXXXXXXXXXXXXXXXX
+  data_prune: XXXXXXXXXXXXXXXXXXXX
+  restore: XXXXXXXXXXXXXXXXXXXX
+  repocheck: XXXXXXXXXXXXXXXXXXXX
+vault_kuma_tokens_b2:
+  system: XXXXXXXXXXXXXXXXXXXX
+  system_prune: XXXXXXXXXXXXXXXXXXXX
+  data: XXXXXXXXXXXXXXXXXXXX
+  data_prune: XXXXXXXXXXXXXXXXXXXX
+  restore: XXXXXXXXXXXXXXXXXXXX
+  repocheck: XXXXXXXXXXXXXXXXXXXX

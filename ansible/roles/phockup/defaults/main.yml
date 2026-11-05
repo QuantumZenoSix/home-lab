@@ -1,0 +1,16 @@
+# Defaults for the phockup role.
+
+phockup_dir: /opt/phockup
+phockup_repo: https://github.com/ivandokov/phockup.git
+
+# A release tag, so every new install gets the same code. provisioning.sh cloned whatever
+# the default branch was at the time. To upgrade, change this and set
+# phockup_update: true for one run, or run `git -C /opt/phockup checkout <tag>` by hand.
+phockup_version: "1.13.0"
+
+# false: once the clone exists, leave it alone, even if phockup_version changes.
+# This matches provisioning.sh, which never touched an existing clone.
+phockup_update: false
+
+# uv, installed for the home lab user. The photo script runs `~/.local/bin/uv run`.
+phockup_uv: "{{ homelab_user_home }}/.local/bin/uv"

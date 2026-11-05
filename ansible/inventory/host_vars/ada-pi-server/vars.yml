@@ -1,0 +1,35 @@
+# Variables for the host ada-pi-server.
+#
+# Ansible automatically loads every .yml file in host_vars/<host name>/ for that host,
+# so this file and vault.yml (the encrypted secrets) are both loaded for ada-pi-server.
+# Plain settings go here. Secrets go in vault.yml; see vault.yml.example.
+#
+# The roles never hardcode these values; they only use the variable names. To set up
+# another lab, copy this folder under the new host's name and change the values.
+#
+# Each role also has defaults in roles/<role>/defaults/main.yml. Set a variable here
+# only if this host needs a different value. Inventory variables override role defaults.
+
+# --------------------------------------------------
+# Used by several roles (hence the homelab_ prefix)
+# --------------------------------------------------
+
+# Non-root user who owns the Compose stacks and runs the Obsidian and photo jobs.
+homelab_user: ada
+homelab_user_home: "/home/{{ homelab_user }}"
+
+# Mount points of the two USB drives. If you rename a drive, change it here and every
+# file rendered from these templates follows on the next run.
+homelab_primary_mount: /media/HDD-Seagate-1TB-Primary
+homelab_backup_mount: /media/HDD-Seagate-2TB-Backup
+
+# Base URL that the scheduled jobs send their Uptime Kuma heartbeats to.
+homelab_kuma_url: http://ada-pi-server:3001
+
+# --------------------------------------------------
+# Role overrides
+# --------------------------------------------------
+
+# Nothing yet: ada-pi-server uses every role default as is. For example, to move the
+# system backup to 02:00 you would add:
+#   restic_system_backup_schedule: "*-*-* 02:00:00"

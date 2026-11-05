@@ -315,9 +315,12 @@ mkdir -p "$PRIMARY_MOUNT" "$BACKUP_MOUNT"
 install -d -m 700 -o root -g root /var/lib/restic-backup
 install -d -m 775 -o "$TARGET_USER" -g "$TARGET_USER" "${TARGET_HOME}/scripts"
 
-# Compose project directories
+# Compose project directories, one per stack under ~/containers (matches filesystem/home/ada/containers/).
+# install -d sets the owner only on the last path component, so create ~/containers explicitly first.
+# Otherwise it would be created owned by root.
+install -d -m 775 -o "$TARGET_USER" -g "$TARGET_USER" "${TARGET_HOME}/containers"
 for project in homelab uptime-kuma beszel; do
-    install -d -m 775 -o "$TARGET_USER" -g "$TARGET_USER" "${TARGET_HOME}/${project}"
+    install -d -m 775 -o "$TARGET_USER" -g "$TARGET_USER" "${TARGET_HOME}/containers/${project}"
 done
 
 # Keep the systemd journal across reboots, so a hang leaves a log behind

@@ -1,0 +1,68 @@
+# Defaults for the restic role: settings a lab may want to change. Override them in
+# inventory host_vars/.
+#
+# The role also needs these from the inventory, and has no defaults for them:
+#   homelab_primary_mount, homelab_backup_mount, homelab_kuma_url   (host_vars/<host>/vars.yml)
+#   vault_restic_*, vault_kuma_tokens_*                             (host_vars/<host>/vault.yml)
+#
+# A value like "{{ homelab_backup_mount }}/restic-tmp" is evaluated lazily, when a task
+# uses it, not when the file is loaded. So defaults can refer to inventory variables.
+
+# --------------------------------------------------
+# Snapshots
+# --------------------------------------------------
+
+# Each snapshot is tagged with a host name, which forget, prune, and restore all filter on.
+# Changing these on an existing repository starts a new series of snapshots, and the old
+# series is never pruned again. inventory_hostname is the host's name in hosts.yml.
+restic_system_host_tag: "system-{{ inventory_hostname }}"
+restic_data_host_tag: data-primary
+
+# Retention, passed to `restic forget`. Also documented in README.md and
+# docs/backups-and-recovery.md, so update those along with any change here.
+restic_data_retention: --keep-daily 7
+restic_system_retention_local: --keep-daily 7 --keep-weekly 6
+restic_system_retention_b2: --keep-daily 30 --keep-monthly 12
+
+# B2's S3-compatible endpoint. The bucket name is a secret, in the vault.
+restic_b2_endpoint: s3.us-west-004.backblazeb2.com
+
+# --------------------------------------------------
+# Schedules
+# --------------------------------------------------
+
+# systemd OnCalendar= expressions for the timers. These times are also listed in
+# README.md and three docs/ files (see CLAUDE.md), so change those too.
+restic_system_backup_schedule: "*-*-* 03:30:00"
+restic_data_backup_schedule: "*-*-* 05:00:00"
+
+# true: enable and start both timers. Set false to install everything but switch the timers
+# on yourself, e.g. after running each job once by hand (provisioning/README.md step 11).
+restic_enable_timers: true
+
+# --------------------------------------------------
+# Paths
+# --------------------------------------------------
+
+# Restic's temporary files. /tmp is a small RAM-backed tmpfs, so they go on the backup drive
+# when it's mounted, and in the on-disk fallback otherwise. The role only creates
+# restic_tmp_dir while the drive is mounted. Created on an unmounted mount point, it would
+# make Restic fill up the SD card instead.
+restic_tmp_dir: "{{ homelab_backup_mount }}/restic-tmp"
+restic_tmp_fallback: /var/tmp/restic
+
+# Where the system backup's restore test keeps its test file. The system backup includes it.
+restic_restore_test_dir: /var/lib/restic-backup
+
+# Both backup scripts take this lock, so only one runs at a time.
+restic_lock_file: /run/lock/restic_backup.lock
+
+# --------------------------------------------------
+# Repository creation
+# --------------------------------------------------
+
+# true: run `restic init` for any repository that doesn't exist yet (fresh install only).
+# Off by default, so a typo or an unmounted drive can't create an empty repository where
+# you expected your backups to be. Turn it on for one run:
+#   ansible-playbook site.yml --ask-vault-pass --tags restic -e restic_init_repos=true
+restic_init_repos: false

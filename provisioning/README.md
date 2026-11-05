@@ -12,6 +12,8 @@ Setup has two parts:
 
 Values marked **TODO** aren't recorded yet and need filling in from the live Pi.
 
+An Ansible playbook in [`ansible/`](../ansible/) is gradually replacing the script and these steps. It already covers most of what the script does (everything except creating the mount points, `~/scripts`, and the Compose directories), plus the Restic parts of steps 7, 8, and 11. See [ansible-crash-course.md](../docs/ansible-crash-course.md#whats-automated-so-far).
+
 ## Before you start
 
 Have these ready. Except for the SSH key, they are all stored off the Pi:
@@ -52,7 +54,7 @@ The script:
 - Installs the packages, including `restic`, `exfatprogs`, `ufw`, and `exiftool`.
 - Writes `/etc/docker/daemon.json` (container DNS: 8.8.8.8, 8.8.4.4, 1.1.1.1) if it doesn't exist, and adds `ada` to the `docker` group.
 - Installs `uv` for `ada` in `~/.local/bin`, clones Phockup to `/opt/phockup` with its own `.venv`, and links `/usr/local/bin/phockup`.
-- Creates the drive mount points, `/var/lib/restic-backup` (the system backup's restore-test file), `~/scripts`, and the three Compose project directories.
+- Creates the drive mount points, `/var/lib/restic-backup` (the system backup's restore-test file), `~/scripts`, and the three Compose project directories under `~/containers/`.
 - Makes the systemd journal persistent.
 - Enables `docker`, `tailscaled`, and `ssh`.
 
@@ -156,7 +158,7 @@ sudo install -m 644 -o root -g root filesystem/etc/systemd/system/*.{service,tim
 
 # Compose files
 for p in homelab uptime-kuma beszel; do
-    install -m 644 filesystem/home/ada/$p/docker-compose.yml ~/$p/
+    install -m 644 filesystem/home/ada/containers/$p/docker-compose.yml ~/containers/$p/
 done
 ```
 

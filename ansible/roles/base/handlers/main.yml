@@ -1,0 +1,10 @@
+# Handlers for the base role.
+#
+# A handler is a task that runs only when another task notifies it AND that task reported
+# "changed". It runs once at the end of the play, however many tasks notified it.
+# Tasks find a handler by its name, so the `notify:` text must match `name:` exactly.
+
+- name: Restart journald
+  ansible.builtin.systemd_service:
+    name: systemd-journald
+    state: restarted

@@ -1,0 +1,10 @@
+# Managed by Ansible from ansible/roles/restic/templates/restic-backup-data.timer.j2. Edit that file, not this one.
+[Unit]
+Description=Daily Restic data backup ({{ restic_data_backup_schedule }})
+
+[Timer]
+OnCalendar={{ restic_data_backup_schedule }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

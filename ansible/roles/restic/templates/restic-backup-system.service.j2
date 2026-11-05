@@ -1,0 +1,17 @@
+# Managed by Ansible from ansible/roles/restic/templates/restic-backup-system.service.j2. Edit that file, not this one.
+[Unit]
+Description=Restic backup of the system (local repo, then B2)
+Documentation=https://github.com/QuantumZenoSix/home-lab/blob/main/docs/backups-and-recovery.md
+# B2 and the Uptime Kuma heartbeats need the network.
+Wants=network-online.target
+After=network-online.target
+# No RequiresMountsFor= for the backup drive: the script skips the local repo
+# when it is missing and still backs up to B2.
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/restic_backup_system.sh
+# Kill a hung run before the next day's timer fires, so it can't block it.
+TimeoutStartSec=20h
+Nice=10
+IOSchedulingClass=idle

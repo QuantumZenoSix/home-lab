@@ -1,0 +1,105 @@
+# Defaults for the base role.
+#
+# Role defaults have the LOWEST precedence of any variable. Anything set in the inventory
+# (host_vars/, group_vars/) or on the command line (-e) overrides them. That makes this the
+# place for values that work for most hosts but that a particular lab might change.
+#
+# ansible-lint expects every variable defined in a role to start with the role's name
+# (base_...). That prefix keeps two roles from accidentally using the same variable name.
+
+# The OS the playbook is written and tested for. The first task stops the run on anything else.
+base_expected_release: trixie # Debian 13
+base_expected_architecture: aarch64 # 64-bit ARM; dpkg calls it arm64
+
+# Packages from provisioning.sh. restic is installed by the restic role, and Docker and
+# Tailscale by their own roles, so each role carries the packages it needs.
+base_packages:
+  # Needed by Ansible itself
+  - acl # lets become_user switch to a non-root user without permission errors
+  - python3-apt # used by the apt module (the module installs it if missing, but this is quicker)
+
+  # Prerequisites from provisioning.sh
+  - ca-certificates
+  - curl
+  - gnupg
+
+  # Networking and security
+  - openssh-server
+  - ufw
+  - nftables
+  - avahi-daemon
+  - bind9-dnsutils
+  - iproute2
+  - iputils-ping
+  - ethtool
+  - tcpdump
+  - net-tools
+
+  # Storage and backup
+  - rsync
+  - exfatprogs # fsck/mkfs for the exFAT primary drive
+  - cifs-utils
+  - ntfs-3g
+  - dosfstools
+  - parted
+
+  # System utilities
+  - wget
+  - git
+  - jq
+  - sqlite3
+  - unzip
+  - zip
+  - 7zip
+  - tree
+  - rsyslog
+  - logrotate
+
+  # Python
+  - python3
+  - python3-pip
+  - python3-venv
+  - python-is-python3
+
+  # Administration and monitoring
+  - btop
+  - htop
+  - sysstat
+  - ncdu
+  - dmidecode
+  - pciutils
+  - usbutils
+  - lsof
+  - strace
+
+  # Terminal utilities (Debian installs bat as batcat and fd-find as fdfind)
+  - bat
+  - fzf
+  - ripgrep
+  - fd-find
+  - zoxide
+  - vim
+  - nano
+  - less
+  - man-db
+
+  # Development utilities
+  - build-essential
+  - pkg-config
+  - gdb
+
+  # Phockup reads photo dates with exiftool
+  - libimage-exiftool-perl
+
+# Installed only if this Debian release has them, like install_available() in provisioning.sh.
+base_optional_packages:
+  - dysk
+  - lazygit
+  - ffmpeg
+  - imagemagick
+  - mkvtoolnix
+  - poppler-utils
+  - v4l-utils
+  - tshark
+  - lua5.1
+  - luajit

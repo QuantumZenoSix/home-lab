@@ -1,0 +1,8 @@
+# Handlers for the docker role. See roles/base/handlers/main.yml for how handlers work.
+
+# Restarting the daemon stops every running container. Containers with a restart policy
+# (all the Compose stacks here) come back by themselves, but expect a short outage.
+- name: Restart Docker
+  ansible.builtin.systemd_service:
+    name: docker
+    state: restarted

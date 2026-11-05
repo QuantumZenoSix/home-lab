@@ -1,0 +1,11 @@
+# Managed by Ansible from ansible/roles/restic/templates/restic-backup-system.timer.j2. Edit that file, not this one.
+[Unit]
+Description=Daily Restic system backup ({{ restic_system_backup_schedule }})
+
+[Timer]
+OnCalendar={{ restic_system_backup_schedule }}
+# Run at boot if the Pi was off at the scheduled time.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

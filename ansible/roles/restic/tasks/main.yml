@@ -1,0 +1,186 @@
+# Tasks for the restic role: install Restic, write its environment and secret files, install
+# the two backup scripts and their systemd units, and enable the timers.
+#
+# Covers provisioning/README.md steps 7 (Restic and Kuma files only), 8 (repository creation,
+# opt-in), and 11 (timers). How the backups work is in docs/backups-and-recovery.md.
+
+# --------------------------------------------------
+# Preflight
+# --------------------------------------------------
+
+# Fail early with a clear message, before writing anything, if vault.yml is missing or still
+# holds placeholders from vault.yml.example. Otherwise the scripts would be installed with
+# fake passwords and fail at 03:30.
+#
+# Task-level `vars:` exist only for this task. restic_vault_values gathers every secret into
+# one list, so a single `select` test can check them all against the placeholder patterns.
+- name: Check that the vault secrets are set and aren't placeholders
+  ansible.builtin.assert:
+    that:
+      - vault_restic_local_password is defined
+      - vault_restic_b2_password is defined
+      - vault_restic_b2_bucket is defined
+      - vault_restic_b2_key_id is defined
+      - vault_restic_b2_application_key is defined
+      - vault_kuma_tokens_local is defined
+      - vault_kuma_tokens_b2 is defined
+      - restic_vault_values | select('match', '^([*]+|X+)$') | list | length == 0
+      - vault_restic_b2_bucket != 'mybucketname'
+    fail_msg: >-
+      The restic role needs the real secrets in
+      inventory/host_vars/{{ inventory_hostname }}/vault.yml. Create it from vault.yml.example,
+      replace every placeholder, and run with --ask-vault-pass.
+    quiet: true
+  vars:
+    restic_vault_values: >-
+      {{ [vault_restic_local_password, vault_restic_b2_password,
+          vault_restic_b2_key_id, vault_restic_b2_application_key]
+         + (vault_kuma_tokens_local.values() | list)
+         + (vault_kuma_tokens_b2.values() | list) }}
+
+- name: Install Restic
+  ansible.builtin.apt:
+    name: restic
+    state: present
+
+# set_fact creates a variable while the play runs. Here it records whether the backup drive
+# is mounted right now, using the mount list from the facts gathered at the start of the
+# play. map(attribute='mount') turns the list of mount records into a list of mount points.
+- name: Check whether the backup drive is mounted
+  ansible.builtin.set_fact:
+    restic_backup_drive_mounted: "{{ homelab_backup_mount in (ansible_facts['mounts'] | map(attribute='mount')) }}"
+
+# --------------------------------------------------
+# Environment and secret files (all root-only, 0600)
+# --------------------------------------------------
+
+# These three tasks write secrets, so each one sets:
+#   no_log: true   hide the task's arguments and results from the output and logs
+#   diff: false    never show the file's contents, even with --diff
+# The cost: if one fails, the error is hidden too. To debug, comment out no_log for that one
+# run, and don't commit that change.
+#
+# loop_control.label sets what the output shows for each loop item. Without it, Ansible
+# prints the whole item dictionary.
+- name: Write the Restic environment files
+  ansible.builtin.template:
+    src: restic-env.j2
+    dest: "{{ item.env_file }}"
+    owner: root
+    group: root
+    mode: "0600"
+  loop: "{{ restic_repos }}"
+  loop_control:
+    label: "{{ item.env_file }}"
+  no_log: true
+  diff: false
+
+# copy with `content:` writes a string straight into a file, with no template file needed.
+- name: Write the Restic password files
+  ansible.builtin.copy:
+    content: "{{ restic_secrets[item.name].password }}\n"
+    dest: "{{ item.password_file }}"
+    owner: root
+    group: root
+    mode: "0600"
+  loop: "{{ restic_repos }}"
+  loop_control:
+    label: "{{ item.password_file }}"
+  no_log: true
+  diff: false
+
+# These are 644 on the live Pi, which lets any user read the push tokens. Ansible sets 600,
+# so the first run fixes that.
+- name: Write the Uptime Kuma push-token files
+  ansible.builtin.template:
+    src: kuma-env.j2
+    dest: "{{ item.kuma_env_file }}"
+    owner: root
+    group: root
+    mode: "0600"
+  loop: "{{ restic_repos }}"
+  loop_control:
+    label: "{{ item.kuma_env_file }}"
+  no_log: true
+  diff: false
+
+# --------------------------------------------------
+# Directories
+# --------------------------------------------------
+
+- name: Create the restore-test folder
+  ansible.builtin.file:
+    path: "{{ restic_restore_test_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+# `when` makes a task conditional. If the expression is false, the task shows "skipping".
+- name: Create Restic's temp folder on the backup drive
+  ansible.builtin.file:
+    path: "{{ restic_tmp_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  when: restic_backup_drive_mounted
+
+# --------------------------------------------------
+# Scripts and systemd units
+# --------------------------------------------------
+
+# The scripts are templates: Jinja2 fills in the paths, host tags, retention, and Kuma URL
+# from variables, so another lab gets its own values.
+#
+# `validate` checks the rendered file BEFORE it replaces the real one. %s is the temporary
+# file's path. `bash -n` parses the script without running it, so a syntax error fails
+# the task and leaves the working script in place.
+- name: Install the backup scripts
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/usr/local/sbin/{{ item }}"
+    owner: root
+    group: root
+    mode: "0755"
+    validate: bash -n %s
+  loop: "{{ restic_scripts }}"
+
+# systemd only sees changed unit files after `systemctl daemon-reload`, so this notifies
+# that handler.
+- name: Install the systemd service and timer units
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ restic_units }}"
+  notify: Reload systemd
+
+# --------------------------------------------------
+# Repository creation (opt-in)
+# --------------------------------------------------
+
+# include_tasks loads another task file from this role only when the condition is true.
+# It keeps the rarely used init logic in its own file, tasks/init.yml.
+- name: Create any repositories that don't exist yet
+  ansible.builtin.include_tasks: init.yml
+  when: restic_init_repos | bool
+
+# --------------------------------------------------
+# Timers
+# --------------------------------------------------
+
+# Handlers normally wait for the end of the play. flush_handlers runs any queued ones NOW,
+# so systemd has reloaded the new unit files before the next task enables the timers.
+- name: Reload systemd now if any unit file changed
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start the backup timers
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop: "{{ restic_timers }}"
+  when: restic_enable_timers | bool

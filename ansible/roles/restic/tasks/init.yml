@@ -1,0 +1,52 @@
+# Creates Restic repositories that don't exist yet. Included from main.yml only when
+# restic_init_repos is true.
+#
+# Restic has no "init if missing", so this is split into two steps:
+#   1. ask each repository for its config (`restic cat config`), which only works if it exists
+#   2. run `restic init` for the ones that failed step 1
+#
+# Even if step 1 fails for another reason (a wrong password, or no network), it's safe:
+# `restic init` refuses to overwrite an existing repository, so that task fails loudly
+# rather than doing damage.
+
+# The env files are bash (they `export` variables and contain an `if`), so the shell has to
+# be bash, and `source` loads them into the same shell that runs restic.
+#
+# failed_when: false   a missing repository is an expected answer here, not an error
+# changed_when: false  this task only reads
+# check_mode: false    run it even during --check, since it only reads
+#
+# `when` skips the local repository if the backup drive isn't mounted. Otherwise restic
+# would find nothing at the mount point and the next task would create a repository on
+# the SD card.
+- name: Check which repositories already exist
+  ansible.builtin.shell: |
+    source {{ item.env_file }}
+    restic cat config > /dev/null
+  args:
+    executable: /bin/bash
+  loop: "{{ restic_repos }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: item.name != 'local' or restic_backup_drive_mounted
+  register: restic_repo_check
+  failed_when: false
+  changed_when: false
+  check_mode: false
+
+# For a looped task, `register` collects a list in .results with one entry per item. Each
+# entry has the original item under .item, plus rc (return code), stdout, and so on.
+# Items that were skipped have no rc.
+- name: Initialise the repositories that don't exist
+  ansible.builtin.shell: |
+    source {{ item.item.env_file }}
+    restic init
+  args:
+    executable: /bin/bash
+  loop: "{{ restic_repo_check.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when:
+    - item.rc is defined
+    - item.rc != 0
+  changed_when: true

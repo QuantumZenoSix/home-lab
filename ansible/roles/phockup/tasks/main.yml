@@ -1,0 +1,72 @@
+# Tasks for the phockup role: uv for the home lab user, and Phockup in /opt/phockup with its
+# own virtual environment. organize_mobile_photos.sh runs:
+#   cd /opt/phockup && ~/.local/bin/uv run ./phockup.py
+#
+# The play already runs as root (become: true in site.yml). Tasks below that set
+#   become: true
+#   become_user: "{{ homelab_user }}"
+# run as ada instead, so the files they create belong to ada. Writing `become: true` again
+# next to become_user isn't strictly needed, but it keeps the task correct if it's ever
+# moved into a play without become. ansible-lint's partial-become rule asks for it.
+
+# uv's installer is a shell script piped from curl, so there's no module for it.
+# `creates` is what makes this idempotent: if that file already exists, Ansible skips the task.
+#
+# `set -o pipefail` makes the pipeline fail when curl fails. Without it, a failed download
+# still "succeeds" as long as `sh` exits 0. That needs bash rather than sh, so the task sets
+# `executable`.
+- name: Install uv for the home lab user
+  ansible.builtin.shell: |
+    set -o pipefail
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+  args:
+    executable: /bin/bash
+    creates: "{{ phockup_uv }}"
+  become: true
+  become_user: "{{ homelab_user }}"
+
+# Root creates /opt/phockup and hands it to ada, so the clone below can run as ada.
+# Running git as root in a folder owned by someone else triggers git's "dubious ownership"
+# safety check.
+- name: Create the Phockup folder
+  ansible.builtin.file:
+    path: "{{ phockup_dir }}"
+    state: directory
+    owner: "{{ homelab_user }}"
+    group: "{{ homelab_user }}"
+    mode: "0755"
+
+- name: Clone Phockup
+  ansible.builtin.git:
+    repo: "{{ phockup_repo }}"
+    dest: "{{ phockup_dir }}"
+    version: "{{ phockup_version }}"
+    depth: 1
+    update: "{{ phockup_update }}"
+  become: true
+  become_user: "{{ homelab_user }}"
+
+# `uv run` uses the .venv in the folder it runs in, which is /opt/phockup.
+# `chdir` sets the working directory, and `creates` skips the task once .venv exists.
+#
+# `set -e` stops the script at the first failing command. If the pip install fails, the
+# script deletes the half-built .venv. Otherwise `creates` would find it on the next run and
+# skip the task, leaving Phockup without its packages.
+# To reinstall from scratch: delete /opt/phockup/.venv and run the role again.
+- name: Create Phockup's virtual environment and install its requirements
+  ansible.builtin.shell: |
+    set -e
+    {{ phockup_uv }} venv
+    {{ phockup_uv }} pip install -r requirements.txt || { rm -rf .venv; exit 1; }
+  args:
+    executable: /bin/bash
+    chdir: "{{ phockup_dir }}"
+    creates: "{{ phockup_dir }}/.venv"
+  become: true
+  become_user: "{{ homelab_user }}"
+
+- name: Put phockup on the PATH
+  ansible.builtin.file:
+    src: "{{ phockup_dir }}/phockup.py"
+    dest: /usr/local/bin/phockup
+    state: link

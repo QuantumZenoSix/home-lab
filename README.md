@@ -32,6 +32,7 @@ Beszel monitors system and container health via the web UI and configurable noti
 | [Backups and recovery](docs/backups-and-recovery.md) | Restic jobs, retention, repository checks, restore procedures, and a recovery checklist |
 | [Operations and monitoring](docs/operations-and-monitoring.md) | Monitored checks, alerting, scheduled tasks, logs, and outage diagnosis |
 | [Provisioning](provisioning/README.md) | Setting up or rebuilding the Pi: the provisioning script, then firewall, drives, secrets, containers, and systemd timers |
+| [Ansible crash course](docs/ansible-crash-course.md) | The in-progress Ansible playbook in `ansible/`, explained from the ground up: concepts, layout, secrets, and running it safely |
 
 
 ## Architecture
@@ -286,6 +287,8 @@ filesystem/
 
 The `filesystem/` directory mirrors selected paths from the Raspberry Pi to make each configuration file's intended location clear. It is a curated reference, not really a complete system image or a drop-in deployment package.
 
+The `ansible/` directory is an in-progress Ansible playbook that will replace `provisioning.sh` and the manual provisioning steps. It currently installs the packages, Docker, Tailscale, and Phockup, and sets up the Restic backups (secrets, scripts, systemd units, and timers) from templates. See the [Ansible crash course](docs/ansible-crash-course.md).
+
 ## Security considerations
 
 - Remote administration and service access are intended to use the private Tailscale network.
@@ -305,6 +308,7 @@ Planned or potential improvements include:
 - Independent monitoring for full-host outages.
 - Additional investigation documentation into occasional service interruptions and host unresponsiveness.
 - More comprehensive deployment and recovery documentation.
+- Finishing the Ansible playbook in `ansible/`, so that a rebuilt Pi or a second lab is set up from one playbook. Drive mounts, SSH hardening, UFW, joining the tailnet, the Compose stacks, and the photo and Obsidian jobs are still manual.
 
 These items are distinguished from the features currently implemented so that the documentation reflects the actual state of the system.
 

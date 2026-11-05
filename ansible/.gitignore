@@ -1,0 +1,6 @@
+# Real secrets. Only vault.yml.example (placeholders) is committed, because this repo is public.
+inventory/host_vars/*/vault.yml
+inventory/group_vars/*/vault.yml
+
+# A vault password file, if you choose to use one instead of --ask-vault-pass.
+.vault_pass

@@ -1,0 +1,48 @@
+# Role variables for the restic role: the role's internal structure, not settings.
+#
+# defaults/ vs vars/:
+#   defaults/main.yml  lowest precedence. Settings meant to be overridden from inventory.
+#   vars/main.yml      high precedence (above inventory). Values the role relies on that
+#                      inventory shouldn't change. Only `-e` on the command line beats them.
+#
+# The /etc file paths below are also written into the two backup scripts, which `source` them.
+
+# The two repositories. The tasks loop over this list to write each repository's three
+# files. No secrets in here: loop items are printed in the output, so secrets are kept
+# separately in restic_secrets below, keyed by the same name.
+restic_repos:
+  - name: local
+    repository: "{{ homelab_backup_mount }}/restic-repo"
+    env_file: /etc/restic-env
+    password_file: /etc/restic-password
+    kuma_env_file: /etc/kuma-env
+  - name: b2
+    repository: "s3:{{ restic_b2_endpoint }}/{{ vault_restic_b2_bucket }}"
+    env_file: /etc/restic-env-b2
+    password_file: /etc/restic-password-b2
+    kuma_env_file: /etc/kuma-env-b2
+
+# Secrets for each repository, read from the vault. Templates look them up with
+# restic_secrets[item.name], e.g. restic_secrets['b2'].password.
+restic_secrets:
+  local:
+    password: "{{ vault_restic_local_password }}"
+    kuma_tokens: "{{ vault_kuma_tokens_local }}"
+  b2:
+    password: "{{ vault_restic_b2_password }}"
+    kuma_tokens: "{{ vault_kuma_tokens_b2 }}"
+    aws_access_key_id: "{{ vault_restic_b2_key_id }}"
+    aws_secret_access_key: "{{ vault_restic_b2_application_key }}"
+
+# The scripts and systemd units this role installs. Each comes from templates/<name>.j2.
+restic_scripts:
+  - restic_backup_system.sh
+  - restic_backup_data.sh
+restic_units:
+  - restic-backup-system.service
+  - restic-backup-system.timer
+  - restic-backup-data.service
+  - restic-backup-data.timer
+restic_timers:
+  - restic-backup-system.timer
+  - restic-backup-data.timer
