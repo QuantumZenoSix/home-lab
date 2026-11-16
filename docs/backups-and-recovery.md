@@ -234,8 +234,16 @@ Instead of "latest" there's also a way to specify a snapshot id.
 restic -r /srv/restic-repo restore latest:/home/ada/docs --target /home/ada/docs --include myfile.txt
 ```
 
+<br />
+
+### Restore a folder + contents (to specific folder)
+
+```sh
+restic -r /srv/restic-repo restore latest --target /home/ada/docs --include /home/ada/docs/
+```
+
 Notes
-- This restores `myfiletxt` under `/home/ada/docs/` .
+- This restores files under `/home/ada/docs/` .
 - Instead of "latest" there's also a way to specify a snapshot id.
 - Restores back to original location.  
 
